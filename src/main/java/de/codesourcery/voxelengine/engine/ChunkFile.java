@@ -125,7 +125,6 @@ public class ChunkFile
             if ( topLevelChunk == null ) {
                 throw new RuntimeException("Internal error,file contains no top-level chunk?");
             }
-            topLevelChunk.subChunks.addAll( subChunks );
             topLevelChunk.updateIsEmptyFlag();
         }
         
@@ -179,19 +178,6 @@ public class ChunkFile
         
         setPayload( writer , chunk );
         writer.writeSegment();
-        
-        for ( int i = 0 , len = chunk.subChunks.size() ; i < len ; i++ ) 
-        {
-            final Chunk subChunk = chunk.subChunks.get(i);
-            if ( subChunk.chunkKey != null ) {
-                // only top-level chunks may have a chunk key set
-                throw new IllegalStateException("Sub-chunk with non-null chunk key ??");
-            }
-            writer.setType( TYPE_SUB_CHUNK_SEGMENT );
-            writer.setVersion( VERSION_SUB_CHUNK );
-            setPayload( writer , subChunk );
-            writer.writeSegment();
-        }
     }
     
     private static void setPayload(SegmentWriter writer,Chunk chunk) throws IOException {
@@ -500,12 +486,14 @@ public class ChunkFile
      */
     public static void store(Chunk chunk,OutputStream out) throws IOException 
     {
-        final SegmentWriter writer = new SegmentWriter( out );
-        writer.setType( TYPE_HEADER_SEGMENT );
-        writer.setVersion( VERSION_HEADER );
-        writer.setPayload( FILE_HEADER_MAGIC );
-        writer.writeSegment();
-        
-        writeChunk( writer , chunk );
+        try ( final SegmentWriter writer = new SegmentWriter( out ) ) 
+        {
+            writer.setType( TYPE_HEADER_SEGMENT );
+            writer.setVersion( VERSION_HEADER );
+            writer.setPayload( FILE_HEADER_MAGIC );
+            writer.writeSegment();
+            
+            writeChunk( writer , chunk );
+        }
     }
 }

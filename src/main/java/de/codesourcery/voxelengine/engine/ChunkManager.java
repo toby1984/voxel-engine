@@ -2,6 +2,9 @@ package de.codesourcery.voxelengine.engine;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -27,6 +30,8 @@ public class ChunkManager implements Disposable
     private final File chunkDir;
 
     private final ThreadPoolExecutor threadPool;
+    
+    private final Map<ChunkKey,Chunk> chunks = new HashMap<>();
 
     public ChunkManager(File chunkDir) 
     {
@@ -88,27 +93,39 @@ public class ChunkManager implements Disposable
     private Chunk getChunk(ChunkKey key,boolean createMissing) 
     {
         Validate.notNull(key, "key must not be NULL");
-        Chunk result = loadChunk(key);
+        Chunk result = chunks.get( key );
         if ( result == null ) 
         {
-            if ( ! createMissing ) {
-                return null;
+            result = loadChunk(key);
+            if ( result == null ) 
+            {
+                if ( ! createMissing ) {
+                    return null;
+                }
+                result = generateChunk( key , createMissing );
             }
-            result = generateChunk( key , createMissing );
+            chunks.put( key , result );
         }
         return result; 
     }
     
     public void unloadChunk(Chunk chunk) 
     {
+        if ( LOG.isDebugEnabled() ) {
+            LOG.debug("unloadChunk(): Unloading chunk "+chunk);
+        }
         try 
         {
             if ( chunk.needsSave() ) {
                 saveChunk( chunk );
             }
-        } catch(Exception e) {
+        } 
+        catch(Exception e) 
+        {
             LOG.error("unloadChunk(): Failed for "+chunk,e);
-        } finally {
+        } 
+        finally {
+            chunks.remove( chunk.chunkKey );
             chunk.dispose();
         }
     }
@@ -126,7 +143,6 @@ public class ChunkManager implements Disposable
         catch (IOException e) 
         {
             LOG.error("saveChunk(): Failed to save chunk "+chunk.chunkKey+" from "+file.getAbsolutePath(),e);
-            throw new RuntimeException("Failed to save chunk "+chunk.chunkKey+" from "+file.getAbsolutePath(),e);
         }
     }
     
@@ -148,15 +164,22 @@ public class ChunkManager implements Disposable
         {
             return new ChunkFile( file ).load();
         } 
-        catch (IOException e) 
+        catch (Exception e) 
         {
             LOG.error("loadChunk(): Failed to load chunk "+key+" from "+file.getAbsolutePath(),e);
-            throw new RuntimeException("Failed to load chunk "+key+" from "+file.getAbsolutePath(),e);
+            return null;
         }
+    }
+    
+    public int getLoadedChunkCount() {
+        return chunks.size();
     }
     
     private Chunk generateChunk(ChunkKey key,boolean recurse) {
         
+        if ( LOG.isDebugEnabled() ) {
+            LOG.debug("generateChunk(): Generating "+key);
+        }
         final float centerX = key.x* World.WORLD_CHUNK_SIZE;
         final float centerY = key.y* World.WORLD_CHUNK_SIZE;
         final float centerZ = key.z* World.WORLD_CHUNK_SIZE;
@@ -171,9 +194,10 @@ public class ChunkManager implements Disposable
         
         if ( key.y == 0 ) // create ground plane 
         {
-            final int yMiddle = World.WORLD_CHUNK_SIZE/2;
-            final int yMin = yMiddle -2;
-            final int yMax = yMiddle +2;
+            final int middle = World.WORLD_CHUNK_SIZE/2;
+//            chunk.setBlockType( middle , middle , middle , BlockType.BLOCKTYPE_SOLID_1 ); 
+            final int yMin = middle -2;
+            final int yMax = middle +2;
             for ( int y = yMin ; y <= yMax ; y++ ) {
                 for ( int x = 0 ; x < World.WORLD_CHUNK_SIZE ; x++ ) 
                 {
@@ -192,6 +216,10 @@ public class ChunkManager implements Disposable
     @Override
     public void dispose() 
     {
+        for ( ChunkKey key : new ArrayList<>( chunks.keySet() ) ) 
+        {
+            unloadChunk( chunks.get( key ) );
+        }
         threadPool.shutdownNow();
         while ( true ) 
         {

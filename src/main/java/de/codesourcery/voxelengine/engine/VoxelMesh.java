@@ -9,7 +9,6 @@ import com.badlogic.gdx.graphics.VertexAttribute;
 import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.VertexAttributes.Usage;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
-import com.badlogic.gdx.graphics.glutils.VertexBufferObject;
 import com.badlogic.gdx.graphics.glutils.VertexBufferObjectWithVAO;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
@@ -106,7 +105,6 @@ public class VoxelMesh implements Disposable
             System.arraycopy( quads , 0 , tmp , 0 , quads.length );
             quads = tmp;
         }
-        
         quads[ quadCount++ ] = newQuad;
     }
     
@@ -152,7 +150,7 @@ public class VoxelMesh implements Disposable
                             addQuad( blockIndex ,bx , by , bz , SIDE_TOP , halfBlockSize );
                         }    
                         if ( hasNoBottomNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex ,bx , by , bz , SIDE_TOP , halfBlockSize );
+                            addQuad( blockIndex ,bx , by , bz , SIDE_BOTTOM , halfBlockSize );
                         }                     
                     }
                 }

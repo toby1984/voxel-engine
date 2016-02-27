@@ -1,8 +1,6 @@
 package de.codesourcery.voxelengine.engine;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
@@ -67,7 +65,6 @@ public class Chunk implements Disposable
     
     public final int chunkSize;
     
-    // block size in world coordinates, blocks are always quads
     public final float blocksize;
 
     /**
@@ -79,13 +76,6 @@ public class Chunk implements Disposable
      * Bitmask holding chunk flags.
      */
     public int flags;
-    
-    /**
-     * List of sub chunks.
-     * 
-     * Sub-chunks must have a center coordinate that is within their parent's bounding box.
-     */
-    public final List<Chunk> subChunks = new ArrayList<>();
     
     /**
      * Mesh to render this chunk
@@ -175,32 +165,6 @@ public class Chunk implements Disposable
     }
     
     /**
-     * Returns whether this chunk has any sub-chunks.
-     * @return
-     */
-    public boolean hasSubChunks() {
-        return ! subChunks.isEmpty();
-    }
-    
-    /**
-     * Returns the sub-chunk that contains a given point.
-     * 
-     * @param point
-     * @return sub chunk or NULL if this chunk either has no sub-chunks or
-     * none of the sub-chunks contains the point.
-     */
-    public Chunk getSubChunkAtPoint(Vector3 point) {
-        
-        for ( int i = 0 , len = subChunks.size() ; i < len ; i++ ) {
-            final Chunk sub = subChunks.get(i);
-            if ( sub.contains( point ) ) {
-                return sub;
-            }
-        }
-        return null;
-    }
-    
-    /**
      * Returns whether this chunk
      * is empty (has no set voxels).
      * 
@@ -285,24 +249,12 @@ public class Chunk implements Disposable
      */
     public boolean updateIsEmptyFlag() 
     {
-        boolean subChunksAreEmpty = true;
-        // process all sub-chunks
-        for ( int i = 0,len = subChunks.size() ; i < len ; i++ ) 
+        for ( int i = 0 , len = blockTypes.length ; i < len ; i++ ) 
         {
-            final Chunk chunk = subChunks.get(i);
-            if ( ! chunk.updateIsEmptyFlag() ) {
-                subChunksAreEmpty = false;
-            }
-        }
-        if ( subChunksAreEmpty ) 
-        {
-            for ( int i = 0 , len = blockTypes.length ; i < len ; i++ ) 
+            if ( blockTypes[i] != BlockType.BLOCKTYPE_EMPTY ) 
             {
-                if ( blockTypes[i] != BlockType.BLOCKTYPE_EMPTY ) 
-                {
-                    clearFlags( FLAG_EMPTY );
-                    return false;
-                }
+                clearFlags( FLAG_EMPTY );
+                return false;
             }
         }
         setFlags( FLAG_EMPTY );
@@ -385,17 +337,7 @@ public class Chunk implements Disposable
     
     public boolean needsSave() 
     {
-        if ( hasFlags( FLAG_NEEDS_SAVE ) ) {
-            return true;
-        }
-        for ( int i = 0 , len = subChunks.size() ; i < len ; i++ ) 
-        {
-            if ( subChunks.get(i).needsSave() ) 
-            {
-                return true;
-            }
-        }
-        return false;
+        return hasFlags( FLAG_NEEDS_SAVE );
     }
     
     public void setNeedsSave(boolean needsSave) 
@@ -426,18 +368,6 @@ public class Chunk implements Disposable
      */
     public boolean needsRebuild() {
         return mesh == null || hasFlags( Chunk.FLAG_NEEDS_REBUILD ) ;
-    }
-    
-    public boolean subChunkNeedsRebuild() 
-    {
-        for ( int i = 0 , len = subChunks.size() ; i < len ; i++ ) 
-        {
-            if ( subChunks.get(i).needsRebuild() ) 
-            {
-                return true;
-            }
-        }
-        return false;
     }
     
     /**
@@ -472,13 +402,23 @@ public class Chunk implements Disposable
             mesh.dispose();
             mesh = null;
         }        
-        for ( Chunk c : subChunks ) 
-        {
-            try {
-                c.dispose();
-            } catch(Exception e) {
-                e.printStackTrace();
-            }
+    }
+    
+    /**
+     * Translates world coordinates that lie within this chunk into block indices.
+     * 
+     * @param worldCoords
+     * @return
+     */
+    public BlockKey getBlockKey( Vector3 worldCoords ) 
+    {
+        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
+        final int by = (int) Math.floor( (worldCoords.y - center.y + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
+        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
+        final BlockKey key = new BlockKey(bx,by,bz);
+        if ( bx < 0 || by < 0 || bz < 0 || bx >= World.WORLD_CHUNK_SIZE || by >= World.WORLD_CHUNK_SIZE || bz >= World.WORLD_CHUNK_SIZE ) {
+            throw new RuntimeException("Internal error, world coordinates "+worldCoords+" maps to "+key+" in chunk "+chunkKey+" @ center "+center);
         }
+        return key;
     }
 }

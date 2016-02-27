@@ -29,6 +29,8 @@ public class WorldRenderer implements Disposable
     protected static final float RENDER_DISTANCE = 100f;
     protected static final float RENDER_DISTANCE_SQUARED = RENDER_DISTANCE*RENDER_DISTANCE;
     
+    public static final boolean RENDER_WIREFRAME =false;
+    
     private final World world;
     
     private final Map<ChunkKey,Chunk> loadedChunks = new HashMap<>();
@@ -42,14 +44,16 @@ public class WorldRenderer implements Disposable
         Validate.notNull(world, "world must not be NULL");
         Validate.notNull(shaderManager,"shaderManager must not be NULL");
         this.world = world;
-        this.shader = shaderManager.getShader( ShaderManager.FLAT_SHADER );
+        this.shader = shaderManager.getShader( RENDER_WIREFRAME ? ShaderManager.WIREFRAME_SHADER : ShaderManager.FLAT_SHADER );
     }
     
-    public void render(PerspectiveCamera camera) 
+    public void render(float deltaTime) 
     {
+        final PerspectiveCamera camera = world.camera;
+        
         frameCounter++;
         
-        final boolean doLog = (frameCounter% 300) == 0;
+        final boolean doLog = false; // (frameCounter% 300) == 0;
         
         final ChunkKey center = world.getChunkCoordinates( world.camera.position );
         
@@ -70,31 +74,26 @@ public class WorldRenderer implements Disposable
                     chunkCenter.z = z * World.WORLD_CHUNK_WIDTH;
                     if ( f.sphereInFrustum( chunkCenter , World.WORLD_CHUNK_HALF_WIDTH ) ) { // TODO: Maybe check against actual bounding box here? Slower but more accurate
                         final ChunkKey key = new ChunkKey(x,y,z );
-                        if ( doLog && LOG.isDebugEnabled() ) {
-                            LOG.debug("render(): Visible chunk "+key);
-                        }
                         visibleChunks.add( key  );
                     }
                 }                 
             }            
         }
         
-        if ( doLog && LOG.isDebugEnabled() ) {
-            LOG.debug("render(): Number of visible chunks: "+visibleChunks.size());
-        }              
-        
         for (Iterator<Entry<ChunkKey, Chunk>> it = loadedChunks.entrySet() .iterator(); it.hasNext();) 
         {
             final Chunk chunk = it.next().getValue();
             if ( ! visibleChunks.contains( chunk.chunkKey ) && chunk.distanceSquared( world.camera.position ) > RENDER_DISTANCE_SQUARED ) 
             {
-                if ( doLog && LOG.isDebugEnabled() ) {
-                    LOG.debug("render(): Unloading invisible chunk "+chunk);
-                }                
                 chunk.clearFlags( Chunk.FLAG_DONT_UNLOAD );
                 it.remove();
+                world.chunkManager.unloadChunk( chunk );
             }
         }
+        
+        if ( doLog && LOG.isDebugEnabled() ) {
+            LOG.debug("render(): Loaded chunks: "+world.chunkManager.getLoadedChunkCount()+" / in-range: "+loadedChunks.size());
+        }           
         
         /*
          * Rebuild & render visible chunks.
@@ -112,9 +111,6 @@ public class WorldRenderer implements Disposable
             Chunk chunk = loadedChunks.get(key);
             if ( chunk == null )
             {
-                if ( doLog && LOG.isDebugEnabled() ) {
-                    LOG.debug("render(): Requesting new chunk "+chunk);
-                }                      
                 chunk = world.chunkManager.getChunk( key );
                 loadedChunks.put( key , chunk  );
             } 
@@ -123,32 +119,9 @@ public class WorldRenderer implements Disposable
             if ( chunk.isNotEmpty() ) 
             {
                 if ( chunk.needsRebuild() ) { 
-                    if ( doLog && LOG.isDebugEnabled() ) {
-                        LOG.debug("render(): Rebuilding chunk "+chunk);
-                    }                      
                     buildMesh( chunk );
                 }
-                if ( doLog && LOG.isDebugEnabled() ) {
-                    LOG.debug("render(): Rendering chunk "+chunk);
-                }                 
                 totalTriangles += chunk.mesh.render( shader , camera , doLog );
-            }
-            for ( int i = 0 , len = chunk.subChunks.size() ; i < len ; i++ ) 
-            {
-                final Chunk subChunk = chunk.subChunks.get(i);
-                if ( subChunk.isNotEmpty() ) 
-                {
-                    if ( subChunk.needsRebuild() ) { 
-                        if ( doLog && LOG.isDebugEnabled() ) {
-                            LOG.debug("render(): Rebuilding chunk "+subChunk);
-                        }                         
-                        buildMesh( subChunk );
-                    }
-                    if ( doLog && LOG.isDebugEnabled() ) {
-                        LOG.debug("render(): Rendering sub-chunk "+subChunk);
-                    }                      
-                    totalTriangles += subChunk.mesh.render( shader , camera,  doLog );
-                }
             }
         }
         shader.end();        

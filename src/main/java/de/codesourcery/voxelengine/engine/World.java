@@ -10,15 +10,24 @@ public class World
     public static final int WORLD_CHUNK_SIZE = 32;
     
     public static final float WORLD_CHUNK_BLOCK_SIZE = 1f;
+    public static final float WORLD_CHUNK_HALF_BLOCK_SIZE = WORLD_CHUNK_BLOCK_SIZE/2f;
     
     public static final float WORLD_CHUNK_WIDTH = WORLD_CHUNK_BLOCK_SIZE*WORLD_CHUNK_SIZE;
     public static final float WORLD_CHUNK_HALF_WIDTH = WORLD_CHUNK_WIDTH/2f;
     
     public final ChunkManager chunkManager;
     
-    public final Player player = new Player();
+    public final Player player = new Player(this);
     
     public final PerspectiveCamera camera;
+
+    /**
+     * Unit-testing only.
+     */
+    World() {
+        this.chunkManager = null;
+        this.camera = null;
+    }
     
     public World(ChunkManager chunkManager,PerspectiveCamera camera) 
     {
@@ -46,9 +55,9 @@ public class World
      */
     public ChunkKey getChunkCoordinates(Vector3 v) 
     {
-        final int chunkX = (int) ( (v.x + WORLD_CHUNK_HALF_WIDTH) / WORLD_CHUNK_WIDTH);
-        final int chunkY = (int) ( (v.y + WORLD_CHUNK_HALF_WIDTH) / WORLD_CHUNK_WIDTH);
-        final int chunkZ = (int) ( (v.z + WORLD_CHUNK_HALF_WIDTH) / WORLD_CHUNK_WIDTH);
+        final int chunkX = (int) Math.floor( (v.x + WORLD_CHUNK_HALF_WIDTH) / WORLD_CHUNK_WIDTH);
+        final int chunkY = (int) Math.floor( (v.y + WORLD_CHUNK_HALF_WIDTH) / WORLD_CHUNK_WIDTH);
+        final int chunkZ = (int) Math.floor( (v.z + WORLD_CHUNK_HALF_WIDTH) / WORLD_CHUNK_WIDTH);
         return new ChunkKey( chunkX , chunkY , chunkZ );
     }    
 }

@@ -18,6 +18,7 @@ public class ShaderManager implements Disposable
     private static final Logger LOG = Logger.getLogger(ShaderManager.class);
 
     public static final String FLAT_SHADER = "flatsolid";
+    public static final String WIREFRAME_SHADER = "wireframe";
     
     private final Map<String,ShaderProgram> shaders = new HashMap<>();
 

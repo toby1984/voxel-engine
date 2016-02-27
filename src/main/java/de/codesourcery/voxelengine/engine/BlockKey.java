@@ -1,12 +1,12 @@
 package de.codesourcery.voxelengine.engine;
 
-public final class ChunkKey {
+public final class BlockKey {
 
     public final int x;
     public final int y;
     public final int z;
     
-    public ChunkKey(int x, int y, int z) 
+    public BlockKey(int x, int y, int z) 
     {
         this.x = x;
         this.y = y;
@@ -15,7 +15,7 @@ public final class ChunkKey {
     
     @Override
     public String toString() {
-        return "Chunk["+x+","+y+","+z+"]";
+        return "Block["+x+","+y+","+z+"]";
     }
 
     @Override
@@ -31,10 +31,10 @@ public final class ChunkKey {
         if ( this == obj ) {
             return true;
         }        
-        if ( obj instanceof ChunkKey ) 
+        if ( obj instanceof BlockKey ) 
         {
 
-            final ChunkKey that = (ChunkKey) obj;
+            final BlockKey that = (BlockKey) obj;
             return this.x == that.x &&
                    this.y == that.y &&
                    this.z == that.z;
@@ -42,27 +42,27 @@ public final class ChunkKey {
         return true;
     }    
     
-    public ChunkKey frontNeighbour() {
-        return new ChunkKey( x , y , z+1 );
+    public BlockKey frontNeighbour() {
+        return new BlockKey( x , y , z+1 );
     }
 
-    public ChunkKey backNeighbour() {
-        return new ChunkKey( x , y , z-1 );
+    public BlockKey backNeighbour() {
+        return new BlockKey( x , y , z-1 );
     }    
     
-    public ChunkKey leftNeighbour() {
-        return new ChunkKey( x-1 , y , z );
+    public BlockKey leftNeighbour() {
+        return new BlockKey( x-1 , y , z );
     }    
     
-    public ChunkKey rightNeighbour() {
-        return new ChunkKey( x+1 , y , z );
+    public BlockKey rightNeighbour() {
+        return new BlockKey( x+1 , y , z );
     }    
     
-    public ChunkKey topNeighbour() {
-        return new ChunkKey( x , y+1 , z );
+    public BlockKey topNeighbour() {
+        return new BlockKey( x , y+1 , z );
     }    
     
-    public ChunkKey bottomNeighbour() {
-        return new ChunkKey( x , y-1 , z );
+    public BlockKey bottomNeighbour() {
+        return new BlockKey( x , y-1 , z );
     }     
 }

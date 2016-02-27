@@ -15,6 +15,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 
 import de.codesourcery.voxelengine.engine.ChunkManager;
+import de.codesourcery.voxelengine.engine.PlayerController;
 import de.codesourcery.voxelengine.engine.World;
 import de.codesourcery.voxelengine.engine.WorldRenderer;
 import de.codesourcery.voxelengine.shaders.ShaderManager;
@@ -36,7 +37,7 @@ public class ApplicationMain implements ApplicationListener {
     private ChunkManager chunkManager;
     private WorldRenderer renderer;
     private ShaderManager shaderManager;
-    private CameraInputController cameraController;
+    private PlayerController playerController;
     private SpriteBatch spriteBatch;
     private BitmapFont font;    
     
@@ -47,19 +48,22 @@ public class ApplicationMain implements ApplicationListener {
         
         logger = new FPSLogger();
         camera = new PerspectiveCamera();
-        
-        camera.position.set(0,25,25);
-        camera.lookAt( 0 , 0 , 0 );
         camera.near = 0.1f;
         camera.far = 1000f;
+        
         spriteBatch = new SpriteBatch();
         chunkManager = new ChunkManager( CHUNK_DIR );
+        
         world = new World( chunkManager , camera );
+        
+        world.player.setPosition(0,25,25);
+        world.player.lookAt( 0 , 0 , 0 );
+        
         shaderManager = new ShaderManager();
         renderer = new WorldRenderer( world , shaderManager );
-        cameraController = new CameraInputController( camera );
-        cameraController.autoUpdate = false;
-        Gdx.input.setInputProcessor( cameraController );
+        playerController = new PlayerController( world.player );
+
+        Gdx.input.setInputProcessor( playerController );
     }
 
     @Override
@@ -80,10 +84,13 @@ public class ApplicationMain implements ApplicationListener {
     public void render() 
     {
         logger.log();
+
+        // update player
+        final float deltaTime = Gdx.graphics.getDeltaTime();
+        playerController.update( deltaTime );
+        world.player.update( deltaTime ); // updates camera as well   
         
-        cameraController.update();
-        camera.update(true);
-        
+        // render 
         Gdx.gl30.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         Gdx.gl30.glClearColor( 0 , 0 , 0 , 1 );
         Gdx.gl30.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
@@ -99,12 +106,13 @@ public class ApplicationMain implements ApplicationListener {
             Gdx.gl30.glDisable(GL20.GL_DEPTH_TEST);
         }
         
-        renderer.render( camera );
+        renderer.render(deltaTime);
         
         renderUI();
     }
     
-    private void renderUI() {
+    private void renderUI()
+    {
         Gdx.graphics.getGL30().glDisable( GL30.GL_DEPTH_TEST);
         Gdx.graphics.getGL30().glDisable( GL30.GL_CULL_FACE );
 
@@ -118,8 +126,15 @@ public class ApplicationMain implements ApplicationListener {
         float y = Gdx.graphics.getHeight() - 15;
         font.draw(spriteBatch, "FPS: "+Gdx.graphics.getFramesPerSecond(), 10 , y );
         
-        y += 15;
+        y -= 15;
         font.draw(spriteBatch, "Camera pos: "+camera.position, 10, y );
+        
+        y -= 15;
+        font.draw(spriteBatch, "Player pos: "+camera.position, 10, y );
+        
+        y -= 15;
+        font.draw(spriteBatch, "Player direction: "+world.player.direction, 10, y );
+        
         spriteBatch.end();        
     }
 
