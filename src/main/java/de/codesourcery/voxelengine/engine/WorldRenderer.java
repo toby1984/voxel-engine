@@ -48,7 +48,7 @@ public class WorldRenderer implements Disposable
     {
         frameCounter++;
         
-        final boolean doLog = (frameCounter% 60) == 0;
+        final boolean doLog = (frameCounter% 300) == 0;
         
         final ChunkKey center = world.getChunkCoordinates( world.camera.position );
         

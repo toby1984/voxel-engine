@@ -8,7 +8,7 @@ public class Main
     public static void main (String[] args)
     {
         LwjglApplicationConfiguration config = new LwjglApplicationConfiguration();
-        config.useGL30 = false;
+        config.useGL30 = true;
         config.vSyncEnabled = true;
         config.foregroundFPS=0;
 

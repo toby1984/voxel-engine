@@ -4,12 +4,13 @@ import org.apache.log4j.Logger;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Camera;
-import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.GL30;
 import com.badlogic.gdx.graphics.VertexAttribute;
 import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.VertexAttributes.Usage;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.VertexBufferObject;
+import com.badlogic.gdx.graphics.glutils.VertexBufferObjectWithVAO;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 
@@ -45,7 +46,7 @@ public class VoxelMesh implements Disposable
     private final ChunkManager chunkManager; 
     
     private Chunk chunk;
-    private VertexBufferObject vbo;
+    private VertexBufferObjectWithVAO vbo;
     
     private int vertexPtr=0;
     private float[] vertexData = new float[0];
@@ -186,7 +187,7 @@ public class VoxelMesh implements Disposable
                 vbo.dispose();
             }
             LOG.info("populateVBO(): Allocating VBO for "+vertexCount+" vertices");
-            vbo = new VertexBufferObject( false , vertexCount , VERTEX_ATTRIBUTES );
+            vbo = new VertexBufferObjectWithVAO( false , vertexCount , VERTEX_ATTRIBUTES );
         }
         
         // turn quads into triangles
@@ -367,7 +368,7 @@ public class VoxelMesh implements Disposable
         shader.begin();
         shader.setUniformMatrix("u_modelViewProjection", camera.combined );
         vbo.bind( shader );
-        Gdx.gl20.glDrawArrays( GL20.GL_TRIANGLES , 0 , vertexCount );
+        Gdx.gl30.glDrawArrays( GL30.GL_TRIANGLES , 0 , vertexCount );
         vbo.unbind( shader );
         shader.end();
     }

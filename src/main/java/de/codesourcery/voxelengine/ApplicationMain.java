@@ -3,12 +3,12 @@ package de.codesourcery.voxelengine;
 import java.io.File;
 
 import org.apache.log4j.Logger;
-import org.lwjgl.opengl.GL11;
 
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.FPSLogger;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.GL30;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -84,19 +84,19 @@ public class ApplicationMain implements ApplicationListener {
         cameraController.update();
         camera.update(true);
         
-        Gdx.gl20.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        Gdx.gl20.glClearColor( 0 , 0 , 0 , 1 );
-        Gdx.gl20.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
+        Gdx.gl30.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        Gdx.gl30.glClearColor( 0 , 0 , 0 , 1 );
+        Gdx.gl30.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
         
         if ( CULL_FACES ) {
-            Gdx.gl20.glEnable( GL20.GL_CULL_FACE );
+            Gdx.gl30.glEnable( GL20.GL_CULL_FACE );
         } else {
-            Gdx.gl20.glDisable( GL20.GL_CULL_FACE );
+            Gdx.gl30.glDisable( GL20.GL_CULL_FACE );
         }
         if ( DEPTH_BUFFER ) {
-            Gdx.gl20.glEnable(GL20.GL_DEPTH_TEST);
+            Gdx.gl30.glEnable(GL20.GL_DEPTH_TEST);
         } else {
-            Gdx.gl20.glDisable(GL20.GL_DEPTH_TEST);
+            Gdx.gl30.glDisable(GL20.GL_DEPTH_TEST);
         }
         
         renderer.render( camera );
@@ -105,8 +105,8 @@ public class ApplicationMain implements ApplicationListener {
     }
     
     private void renderUI() {
-        Gdx.graphics.getGL20().glDisable(GL11.GL_DEPTH_TEST);
-        Gdx.graphics.getGL20().glDisable( GL20.GL_CULL_FACE );
+        Gdx.graphics.getGL30().glDisable( GL30.GL_DEPTH_TEST);
+        Gdx.graphics.getGL30().glDisable( GL30.GL_CULL_FACE );
 
         spriteBatch.begin();
         final int centerX = Gdx.graphics.getWidth()/2;
