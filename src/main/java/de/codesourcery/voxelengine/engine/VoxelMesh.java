@@ -199,9 +199,6 @@ public class VoxelMesh implements Disposable
             addTriangle( quads[i] , halfBlockSize );
         }
         
-//        addTriangle( new Vector3(-100f,0,0), new Vector3( 0, 100 ,0), new Vector3( 100f,0,0), new Vector3( 0 ,0, 1 ), new float[] { 1f , 1 , 1 , 1f } );    
-        
-        // populate buffer
         LOG.info("populateVBO(): Uploading "+vertexPtr+" floats");
         vbo.setVertices( vertexData , 0 , vertexPtr );
     }
@@ -358,19 +355,17 @@ public class VoxelMesh implements Disposable
         return neighbour.isBlockEmpty( blockX , neighbour.chunkSize-1 , blockZ );
     }     
     
-    public void render(ShaderProgram shader,Camera camera,boolean debug) 
+    public int render(ShaderProgram shader,Camera camera,boolean debug) 
     {
         final int vertexCount = vertexPtr / VERTEX_FLOAT_SIZE;
         if ( debug ) {
             LOG.debug("render(): Rendering mesh with "+(vertexCount/3)+" triangles ("+vertexCount+" vertices)");
         }
         
-        shader.begin();
-        shader.setUniformMatrix("u_modelViewProjection", camera.combined );
         vbo.bind( shader );
         Gdx.gl30.glDrawArrays( GL30.GL_TRIANGLES , 0 , vertexCount );
         vbo.unbind( shader );
-        shader.end();
+        return vertexCount/3;
     }
     
     @Override

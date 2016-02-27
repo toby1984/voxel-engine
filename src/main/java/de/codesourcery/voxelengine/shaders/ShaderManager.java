@@ -17,7 +17,7 @@ public class ShaderManager implements Disposable
 {
     private static final Logger LOG = Logger.getLogger(ShaderManager.class);
 
-    public static final String FLAT_SHADER = "flat";
+    public static final String FLAT_SHADER = "flatsolid";
     
     private final Map<String,ShaderProgram> shaders = new HashMap<>();
 

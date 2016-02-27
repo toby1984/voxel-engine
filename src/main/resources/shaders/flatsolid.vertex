@@ -1,0 +1,31 @@
+#version 330
+
+// per-vertex attributes
+in vec4 v_position;
+in vec4 v_color;
+in vec3 v_normal;
+      
+// uniforms
+uniform mat4 u_modelView;
+uniform mat4 u_modelViewProjection;
+uniform mat4 u_normalMatrix;
+
+// shader output
+smooth out vec4 color;
+
+void main()                   
+{   
+    vec3 vLightPosition = vec3(500, 500 , 0 );
+    vec4 vEyeNormal = u_normalMatrix * vec4(v_normal.xyz,0);
+    
+    vec4 vPosition4 = u_modelView * v_position;
+    vec3 vPosition3 = vPosition4.xyz / vPosition4.w;
+    
+    vec3 vLightDir = normalize( vLightPosition - vPosition3 );
+    float diff = max(0.3,dot(vEyeNormal.xyz,vLightDir));
+    
+    color.rgb = diff * v_color.rgb;
+    color.a = 1;
+    
+    gl_Position = u_modelViewProjection * v_position;
+}

@@ -25,7 +25,7 @@ public class ApplicationMain implements ApplicationListener {
     
     private static final boolean CULL_FACES = false;
 
-    private static final boolean DEPTH_BUFFER = false;
+    private static final boolean DEPTH_BUFFER = true;
 
     private final File CHUNK_DIR = new File("/home/tobi/tmp/chunks");
     
@@ -48,7 +48,7 @@ public class ApplicationMain implements ApplicationListener {
         logger = new FPSLogger();
         camera = new PerspectiveCamera();
         
-        camera.position.set(0,100,100);
+        camera.position.set(0,25,25);
         camera.lookAt( 0 , 0 , 0 );
         camera.near = 0.1f;
         camera.far = 1000f;

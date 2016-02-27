@@ -171,12 +171,17 @@ public class ChunkManager implements Disposable
         
         if ( key.y == 0 ) // create ground plane 
         {
-            for ( int x = 0 ; x < World.WORLD_CHUNK_SIZE ; x++ ) 
-            {
-                for ( int z = 0 ; z < World.WORLD_CHUNK_SIZE ; z++ ) 
+            final int yMiddle = World.WORLD_CHUNK_SIZE/2;
+            final int yMin = yMiddle -2;
+            final int yMax = yMiddle +2;
+            for ( int y = yMin ; y <= yMax ; y++ ) {
+                for ( int x = 0 ; x < World.WORLD_CHUNK_SIZE ; x++ ) 
                 {
-                    final int blockType = rnd.nextInt( BlockType.MAX_BLOCK_TYPE+1 );
-                    chunk.setBlockType( x , World.WORLD_CHUNK_SIZE/2 , z , blockType ); 
+                    for ( int z = 0 ; z < World.WORLD_CHUNK_SIZE ; z++ ) 
+                    {
+                        final int blockType = rnd.nextInt( BlockType.MAX_BLOCK_TYPE+1 );
+                        chunk.setBlockType( x , y , z , blockType ); 
+                    }
                 }
             }
             chunk.clearFlags( Chunk.FLAG_EMPTY );

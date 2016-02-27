@@ -13,6 +13,7 @@ import org.apache.log4j.Logger;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Frustum;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 
@@ -98,6 +99,14 @@ public class WorldRenderer implements Disposable
         /*
          * Rebuild & render visible chunks.
          */
+        
+        shader.begin();
+        shader.setUniformMatrix("u_modelView", camera.view );
+        shader.setUniformMatrix("u_modelViewProjection", camera.combined );
+        final Matrix4 normalMatrix = camera.view.cpy().toNormalMatrix();
+        shader.setUniformMatrix("u_normalMatrix", normalMatrix );
+        
+        int totalTriangles = 0;
         for ( ChunkKey key : visibleChunks ) 
         {
             Chunk chunk = loadedChunks.get(key);
@@ -122,7 +131,7 @@ public class WorldRenderer implements Disposable
                 if ( doLog && LOG.isDebugEnabled() ) {
                     LOG.debug("render(): Rendering chunk "+chunk);
                 }                 
-                chunk.mesh.render( shader , camera , doLog );
+                totalTriangles += chunk.mesh.render( shader , camera , doLog );
             }
             for ( int i = 0 , len = chunk.subChunks.size() ; i < len ; i++ ) 
             {
@@ -138,9 +147,13 @@ public class WorldRenderer implements Disposable
                     if ( doLog && LOG.isDebugEnabled() ) {
                         LOG.debug("render(): Rendering sub-chunk "+subChunk);
                     }                      
-                    subChunk.mesh.render( shader , camera,  doLog );
+                    totalTriangles += subChunk.mesh.render( shader , camera,  doLog );
                 }
             }
+        }
+        shader.end();        
+        if ( doLog ) {
+            LOG.debug("render(): Total triangles: "+totalTriangles);
         }
     }
     
