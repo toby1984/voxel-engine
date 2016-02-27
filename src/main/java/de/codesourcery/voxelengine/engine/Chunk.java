@@ -118,7 +118,7 @@ public class Chunk implements Disposable
     {
         this(key,center,chunkSize,blockSize, new int[ chunkSize*chunkSize*chunkSize ] );
         blockTypes = new int[chunkSize*chunkSize*chunkSize];
-        Arrays.fill( blockTypes , BlockType.BLOCKTYPE_EMPTY );
+        Arrays.fill( blockTypes , BlockType.BLOCKTYPE_AIR );
         flags |= FLAG_EMPTY;        
     }
     
@@ -251,7 +251,7 @@ public class Chunk implements Disposable
     {
         for ( int i = 0 , len = blockTypes.length ; i < len ; i++ ) 
         {
-            if ( blockTypes[i] != BlockType.BLOCKTYPE_EMPTY ) 
+            if ( blockTypes[i] != BlockType.BLOCKTYPE_AIR ) 
             {
                 clearFlags( FLAG_EMPTY );
                 return false;
@@ -379,7 +379,7 @@ public class Chunk implements Disposable
      * @return
      */
     public boolean isBlockEmpty(int bx,int by,int bz) {
-        return getBlockType( bx , by , bz ) == BlockType.BLOCKTYPE_EMPTY;
+        return getBlockType( bx , by , bz ) == BlockType.BLOCKTYPE_AIR;
     }
     
     /**
@@ -391,7 +391,7 @@ public class Chunk implements Disposable
      * @return
      */
     public boolean isBlockNotEmpty(int bx,int by,int bz) {
-        return getBlockType( bx , by , bz ) != BlockType.BLOCKTYPE_EMPTY;
+        return getBlockType( bx , by , bz ) != BlockType.BLOCKTYPE_AIR;
     }    
 
     @Override
@@ -405,6 +405,23 @@ public class Chunk implements Disposable
     }
     
     /**
+     * Returns the block index for a given world coordinate.
+     * 
+     * @param worldCoords
+     * @return
+     */
+    public int blockIndex(Vector3 worldCoords) 
+    {
+        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
+        final int by = (int) Math.floor( (worldCoords.y - center.y + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
+        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
+        if ( bx < 0 || by < 0 || bz < 0 || bx >= World.WORLD_CHUNK_SIZE || by >= World.WORLD_CHUNK_SIZE || bz >= World.WORLD_CHUNK_SIZE ) {
+            throw new RuntimeException("Internal error, world coordinates "+worldCoords+" maps to ("+bx+","+by+","+bz+") in chunk "+chunkKey+" @ center "+center);
+        }
+        return blockIndex(bx,by,bz);
+    }
+    
+    /**
      * Translates world coordinates that lie within this chunk into block indices.
      * 
      * @param worldCoords
@@ -412,13 +429,26 @@ public class Chunk implements Disposable
      */
     public BlockKey getBlockKey( Vector3 worldCoords ) 
     {
+        return getBlockKey( worldCoords , new BlockKey() );
+    }
+    
+    /**
+     * Populates a {@link BlockKey} instance using world coordinates.
+     * 
+     * @param worldCoords
+     * @param key Block key to set
+     * 
+     * @return <code>key</code> (for chaining)
+     */    
+    public BlockKey getBlockKey( Vector3 worldCoords , BlockKey key ) 
+    {
         final int bx = (int) Math.floor( (worldCoords.x - center.x + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
         final int by = (int) Math.floor( (worldCoords.y - center.y + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
         final int bz = (int) Math.floor( (worldCoords.z - center.z + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
-        final BlockKey key = new BlockKey(bx,by,bz);
         if ( bx < 0 || by < 0 || bz < 0 || bx >= World.WORLD_CHUNK_SIZE || by >= World.WORLD_CHUNK_SIZE || bz >= World.WORLD_CHUNK_SIZE ) {
             throw new RuntimeException("Internal error, world coordinates "+worldCoords+" maps to "+key+" in chunk "+chunkKey+" @ center "+center);
         }
+        key.set( bx , by , bz );
         return key;
-    }
+    }    
 }

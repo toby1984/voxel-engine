@@ -131,7 +131,7 @@ public class VoxelMesh implements Disposable
                 for ( int z = 0 ; z < chunkSize ; z++ , bz += blockSize  ) 
                 {
                     final int blockType = chunk.getBlockType( x , y , z );
-                    if ( blockType != BlockType.BLOCKTYPE_EMPTY ) // only render non-empty blocks
+                    if ( blockType != BlockType.BLOCKTYPE_AIR ) // only render non-empty blocks
                     {
                         final int blockIndex = chunk.blockIndex(x,y,z);
                         if ( hasNoBackNeighbour( x , y , z ) ) {

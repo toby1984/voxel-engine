@@ -10,7 +10,7 @@ public interface BlockType
     /**
      * Block is empty.
      */
-    public static final int BLOCKTYPE_EMPTY = 0;
+    public static final int BLOCKTYPE_AIR = 0;
     
     public static final int BLOCKTYPE_SOLID_1 = 1;
     public static final int BLOCKTYPE_SOLID_2 = 2;

@@ -2,15 +2,25 @@ package de.codesourcery.voxelengine.engine;
 
 public final class BlockKey {
 
-    public final int x;
-    public final int y;
-    public final int z;
+    public int x;
+    public int y;
+    public int z;
+    
+    public BlockKey() {
+    }
     
     public BlockKey(int x, int y, int z) 
     {
         this.x = x;
         this.y = y;
         this.z = z;
+    }
+    
+    public BlockKey set(int x,int y,int z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        return this;
     }
     
     @Override

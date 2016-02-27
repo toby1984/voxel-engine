@@ -24,9 +24,9 @@ import com.badlogic.gdx.math.Vector3;
 
 public class PlayerController extends InputAdapter 
 {
-    public static final float ROTATION_ANGLE = 360f;
+    public static final float ROTATION_ANGLE = 1.5f*360f;
     
-    public static final float TRANSLATION_UNITS = 10f; 
+    public static final float TRANSLATION_UNITS = 2f; 
     
     public static final int FORWARD = Keys.W;
     public static final int BACK = Keys.S;
@@ -68,15 +68,22 @@ public class PlayerController extends InputAdapter
         
         if ( leftPressed ) {
             tmp.set( player.direction ).crs( player.up ).scl( -delta * TRANSLATION_UNITS );
+            tmp.y = 0;
             player.translate( tmp );
         } else if ( rightPressed ) {
             tmp.set( player.direction ).crs( player.up ).scl( delta * TRANSLATION_UNITS );
+            tmp.y = 0;
             player.translate( tmp );
         }
-        if (forwardPressed) {
-            player.translate(tmp.set(player.direction).scl(delta * TRANSLATION_UNITS));
+        if (forwardPressed) 
+        {
+            tmp.set(player.direction).scl(delta * TRANSLATION_UNITS);
+            tmp.y = 0;
+            player.translate(tmp);
         } else if (backwardPressed) {
-            player.translate(tmp.set(player.direction).scl(-delta * TRANSLATION_UNITS));
+            tmp.set(player.direction).scl(-delta * TRANSLATION_UNITS);
+            tmp.y = 0;
+            player.translate( tmp );
         }
     }
     
