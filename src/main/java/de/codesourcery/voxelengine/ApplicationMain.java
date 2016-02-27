@@ -130,7 +130,10 @@ public class ApplicationMain implements ApplicationListener {
         font.draw(spriteBatch, "Camera pos: "+camera.position, 10, y );
         
         y -= 15;
-        font.draw(spriteBatch, "Player pos: "+camera.position, 10, y );
+        font.draw(spriteBatch, "Player feet pos: "+world.player.feetPosition() , 10, y );
+        
+        y -= 15;
+        font.draw(spriteBatch, "Player head pos: "+world.player.headPosition(), 10, y );        
         
         y -= 15;
         font.draw(spriteBatch, "Player direction: "+world.player.direction, 10, y );

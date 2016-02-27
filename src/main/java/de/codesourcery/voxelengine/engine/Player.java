@@ -103,11 +103,11 @@ public class Player
         setPosition(pos.x,pos.y,pos.z);
     }
     
-    public Vector3 cameraPosition() {
+    public Vector3 headPosition() {
         return headPosition;
     }
     
-    public Vector3 playerPosition() {
+    public Vector3 feetPosition() {
         return feetPosition;
     }
     
