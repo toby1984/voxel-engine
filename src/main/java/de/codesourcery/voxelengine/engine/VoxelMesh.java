@@ -48,25 +48,24 @@ public class VoxelMesh implements Disposable
     private VertexBufferObjectWithVAO vbo;
     
     private int vertexPtr=0;
-    private float[] vertexData = new float[0];
+    private float[] vertexData = new float[100 * VERTEX_FLOAT_SIZE ];
     
-    private int quadCount = 0;
-    private Quad[] quads;
+    private final Quad quad = new Quad();
     
     protected static final class Quad
     {
-        public final float centerX,centerY,centerZ;
-        public final int side;
-        public final int blockIndex;
+        public float centerX,centerY,centerZ;
+        public int side;
+        public int blockIndex;
         
-        public Quad(int blockIndex,float centerX,float centerY,float centerZ,int side) 
+        public void set(int blockIndex,float centerX,float centerY,float centerZ,int side) 
         {
             this.centerX = centerX;
             this.centerY = centerY;
             this.centerZ = centerZ;
             this.blockIndex = blockIndex;
             this.side = side;
-        }
+        }        
     }
     
     public VoxelMesh(ChunkManager chunkManager) {
@@ -75,43 +74,35 @@ public class VoxelMesh implements Disposable
 
     private void addQuad(int blockIndex,float cx , float cy , float cz,int side, float halfBlockSize) 
     {
-        Quad newQuad;
         switch( side ) 
         {
             case SIDE_TOP:
-                newQuad = new Quad( blockIndex, cx , cy + halfBlockSize , cz , side );
+                quad.set( blockIndex, cx , cy + halfBlockSize , cz , side );
                 break;
             case SIDE_BOTTOM:
-                newQuad = new Quad( blockIndex, cx , cy - halfBlockSize , cz , side );
+                quad.set( blockIndex, cx , cy - halfBlockSize , cz , side );
                 break;
             case SIDE_LEFT:
-                newQuad = new Quad( blockIndex, cx - halfBlockSize , cy , cz , side );
+                quad.set( blockIndex, cx - halfBlockSize , cy , cz , side );
                 break;
             case SIDE_RIGHT:
-                newQuad = new Quad( blockIndex, cx + halfBlockSize , cy , cz , side );
+                quad.set( blockIndex, cx + halfBlockSize , cy , cz , side );
                 break;
             case SIDE_FRONT:
-                newQuad = new Quad( blockIndex, cx , cy , cz + halfBlockSize , side );
+                quad.set( blockIndex, cx , cy , cz + halfBlockSize , side );
                 break;
             case SIDE_BACK:
-                newQuad = new Quad( blockIndex, cx , cy , cz - halfBlockSize , side );
+                quad.set( blockIndex, cx , cy , cz - halfBlockSize , side );
                 break;
             default:
                 throw new IllegalArgumentException("Unknown side: "+side);
         }
-        if ( quadCount == quads.length ) 
-        {
-            Quad[] tmp = new Quad[ quads.length*2 ];
-            System.arraycopy( quads , 0 , tmp , 0 , quads.length );
-            quads = tmp;
-        }
-        quads[ quadCount++ ] = newQuad;
+        addTriangle( quad , halfBlockSize );
     }
     
     public void buildMesh(Chunk chunk)
     {
-        this.quadCount = 0;
-        this.quads = new Quad[1000];        
+        this.vertexPtr = 0;
         this.chunk = chunk;
         
         // Create quads for all block sides that are adjacent 
@@ -168,16 +159,12 @@ public class VoxelMesh implements Disposable
             chunk.mesh = this;
         }
         chunk.clearFlags( Chunk.FLAG_NEEDS_REBUILD );
-        
-        quads = null;
-        vertexData = null;
-        quadCount = 0;
     }
     
     private void populateVBO() 
     {
-        final int triangleCount = quadCount * 2;
-        final int vertexCount = triangleCount * 3;
+        final int vertexCount = vertexPtr / VERTEX_FLOAT_SIZE;
+        final int triangleCount = vertexCount/3;
         
         if ( vbo == null || vbo.getNumMaxVertices() < vertexCount ) 
         {
@@ -188,16 +175,7 @@ public class VoxelMesh implements Disposable
             vbo = new VertexBufferObjectWithVAO( false , vertexCount , VERTEX_ATTRIBUTES );
         }
         
-        // turn quads into triangles
-        vertexData = new float[ vertexCount * VERTEX_FLOAT_SIZE ];
-        vertexPtr = 0;
-        final float halfBlockSize = chunk.blocksize/2f;
-        for ( int i = 0 , len = quadCount  ; i < len ; i++ ) 
-        {
-            addTriangle( quads[i] , halfBlockSize );
-        }
-        
-        LOG.info("populateVBO(): Uploading "+vertexPtr+" floats");
+        LOG.info("populateVBO(): Uploading "+vertexPtr+" floats ("+triangleCount+" triangles)");
         vbo.setVertices( vertexData , 0 , vertexPtr );
     }
     
@@ -277,6 +255,12 @@ public class VoxelMesh implements Disposable
     
     private void addTriangle(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 normal,float[] color) 
     {
+        final int bytesAvailable = vertexData.length - vertexPtr;
+        if ( bytesAvailable < 3*VERTEX_FLOAT_SIZE ) {
+            final float[] tmp = new float[ vertexData.length + 100*6*VERTEX_FLOAT_SIZE]; // add space for 100 more quads
+            System.arraycopy( vertexData , 0 , tmp , 0 , vertexPtr );
+            vertexData = tmp;
+        }
         addVertex( p0 , normal , color );
         addVertex( p1 , normal , color );
         addVertex( p2 , normal , color );

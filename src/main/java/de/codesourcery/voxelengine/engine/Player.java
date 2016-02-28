@@ -38,6 +38,10 @@ public class Player
         this.world = world;
     }
     
+    public ChunkKey getCurrentChunk() {
+        return world.getChunkCoordinates( feetPosition );
+    }
+    
     public void update(float delta) 
     {
         handleCollisions(delta);

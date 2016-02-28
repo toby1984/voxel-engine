@@ -1,6 +1,10 @@
 package de.codesourcery.voxelengine.engine;
 
 import java.util.Arrays;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.apache.log4j.Logger;
 
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
@@ -17,6 +21,8 @@ import com.badlogic.gdx.utils.Disposable;
  */
 public class Chunk implements Disposable
 {
+    private static final Logger LOG = Logger.getLogger(Chunk.class);
+    
     /**
      * Flag: Chunk contains only empty blocks.
      */
@@ -28,40 +34,9 @@ public class Chunk implements Disposable
     public static final int FLAG_NEEDS_REBUILD = 1<<1;
     
     /**
-     * Flag: Chunk must not be unloaded
-     */
-    public static final int FLAG_DONT_UNLOAD   = 1<<2;
-    
-    /**
      * Flag: In-memory state of chunk differs from on-disk state, chunk must be saved to disk.
      */
     public static final int FLAG_NEEDS_SAVE = 1<<3;
-    
-    private static String flagsToString(int value) 
-    {
-        final StringBuilder buffer = new StringBuilder();
-        if ( ( value & FLAG_EMPTY) != 0 ) 
-        {
-            if ( buffer.length() > 0 ) { buffer.append(" | "); }
-            buffer.append("EMPTY");
-        }
-        if ( ( value & FLAG_NEEDS_REBUILD) != 0 ) 
-        {
-            if ( buffer.length() > 0 ) { buffer.append(" | "); }
-            buffer.append("NEEDS_REBUILD");
-        }   
-        if ( ( value & FLAG_DONT_UNLOAD ) != 0 ) 
-        {
-            if ( buffer.length() > 0 ) { buffer.append(" | "); }
-            buffer.append("PINNED");
-        }   
-        if ( ( value & FLAG_NEEDS_SAVE ) != 0 ) 
-        {
-            if ( buffer.length() > 0 ) { buffer.append(" | "); }
-            buffer.append("NEEDS_SAVE");
-        }         
-        return buffer.toString();
-    }
     
     public final int chunkSize;
     
@@ -71,6 +46,10 @@ public class Chunk implements Disposable
      * Chunk key, <code>null</code> for sub-chunks.
      */
     public final ChunkKey chunkKey;
+    
+    private boolean markedForUnload;
+    private final AtomicBoolean isDisposed = new AtomicBoolean(false);
+    private boolean isInUse = false;
     
     /**
      * Bitmask holding chunk flags.
@@ -95,16 +74,40 @@ public class Chunk implements Disposable
     /**
      * Block type of each voxel.
      */
-    public int[] blockTypes;
-    
-    /**
-     * Timestamp when this chunk has last been accessed (used when trying to determine which chunk is a candidate for unloading).
-     */
-    public long lastAccessTimestamp = System.currentTimeMillis();
+    public final int[] blockTypes;
     
     @Override
     public String toString() {
-        return "Chunk ("+chunkKey+"): center="+center+", last_access="+lastAccessTimestamp+" , flags = "+flagsToString( flags );
+        return "Chunk ("+chunkKey+"): center="+center+", flags = "+flagsToString()+" , bounds = "+boundingBox;
+    }
+
+    @Override
+    public boolean equals(Object obj) 
+    {
+        if ( obj instanceof Chunk ) 
+        {
+            final Chunk o = (Chunk) obj;
+            if ( ! Objects.equals( this.chunkKey , o.chunkKey ) ) {
+                return false;
+            }
+            if ( this.blocksize != o.blocksize ) {
+                return false;
+            }
+            if ( this.chunkSize != o.chunkSize ) {
+                return false;
+            }
+            if ( this.flags != o.flags ) {
+                return false;
+            }
+            if ( ! Objects.equals( this.center , o.center ) ) {
+                return false;
+            }
+            if ( ! Arrays.equals( this.blockTypes , ((Chunk) obj).blockTypes ) ) {
+                return false;
+            }
+            return true;
+        }
+        return false;
     }
     
     /**
@@ -117,7 +120,6 @@ public class Chunk implements Disposable
     public Chunk(ChunkKey key,Vector3 center,int chunkSize,float blockSize) 
     {
         this(key,center,chunkSize,blockSize, new int[ chunkSize*chunkSize*chunkSize ] );
-        blockTypes = new int[chunkSize*chunkSize*chunkSize];
         Arrays.fill( blockTypes , BlockType.BLOCKTYPE_AIR );
         flags |= FLAG_EMPTY;        
     }
@@ -149,8 +151,9 @@ public class Chunk implements Disposable
         this.blocksize = blockSize;
         this.blockTypes = blockTypes;
         
-        final float halfSize = chunkSize*blockSize/2f;
+        final float halfSize = (chunkSize*blockSize)/2f;
         this.boundingBox = new BoundingBox( center.cpy().sub( halfSize , halfSize , halfSize ) , center.cpy().add( halfSize , halfSize , halfSize ) ); 
+        updateIsEmptyFlag();
     }
     
     /**
@@ -209,28 +212,6 @@ public class Chunk implements Disposable
      */
     public void setFlags(int bitMask) {
         this.flags |= bitMask;
-    }
-    
-    /**
-     * Set whether this chunk can be unloaded.
-     * 
-     * @param canUnload
-     */
-    public void setCanUnload(boolean canUnload) 
-    {
-        if ( canUnload ) {
-            clearFlags( FLAG_DONT_UNLOAD );
-        } else {
-            setFlags( FLAG_DONT_UNLOAD );
-        }
-    }
-    
-    /**
-     * Returns whether this chunk can be unloaded.
-     * @return
-     */
-    public boolean canUnload() {
-        return ! hasFlags( FLAG_DONT_UNLOAD );
     }
     
     /**
@@ -399,6 +380,9 @@ public class Chunk implements Disposable
     {
         if ( mesh != null ) 
         {
+            if ( LOG.isDebugEnabled() ) {
+                LOG.debug("dispose(): Releasing mesh of chunk "+this);
+            }
             mesh.dispose();
             mesh = null;
         }        
@@ -450,5 +434,78 @@ public class Chunk implements Disposable
         }
         key.set( bx , by , bz );
         return key;
+    }
+    
+    private String flagsToString() 
+    {
+        final StringBuilder buffer = new StringBuilder();
+        final int value = flags;
+        if ( ( value & FLAG_EMPTY) != 0 ) 
+        {
+            if ( buffer.length() > 0 ) { buffer.append(" | "); }
+            buffer.append("EMPTY");
+        }
+        if ( ( value & FLAG_NEEDS_REBUILD) != 0 ) 
+        {
+            if ( buffer.length() > 0 ) { buffer.append(" | "); }
+            buffer.append("NEEDS_REBUILD");
+        }   
+        if ( isInUse() )
+        {
+            if ( buffer.length() > 0 ) { buffer.append(" | "); }
+            buffer.append("IN_USE");
+        }   
+        if ( isMarkedForUnloading() )
+        {
+            if ( buffer.length() > 0 ) { buffer.append(" | "); }
+            buffer.append("MARKED_FOR_UNLOAD");
+        } 
+        if ( isDisposed() )
+        {
+            if ( buffer.length() > 0 ) { buffer.append(" | "); }
+            buffer.append("DISPOSED");
+        }  
+        if ( ( value & FLAG_NEEDS_SAVE ) != 0 ) 
+        {
+            if ( buffer.length() > 0 ) { buffer.append(" | "); }
+            buffer.append("NEEDS_SAVE");
+        }         
+        return buffer.toString();
+    }
+    
+    public boolean isInUse() {
+        return isInUse;
+    }
+    
+    public void setIsInUse(boolean yesNo) 
+    {
+        if ( yesNo && markedForUnload )
+        {
+            LOG.error("Cannot mark chunk as in-use, already marked for unloading or disposed: "+this);
+            throw new IllegalStateException("Cannot mark chunk as in-use, already marked for unloading or disposed: "+this);
+        }
+        this.isInUse = yesNo;
+    }
+    
+    public boolean isMarkedForUnloading() {
+        return this.markedForUnload;
+    }
+    
+    public void markForUnloading() 
+    {
+        if ( isInUse() ) 
+        {
+            LOG.error("markForUnloading(): Cannot mark chunk that is in-use for unloading: "+this);            
+            throw new IllegalStateException("Cannot mark chunk that is in-use for unloading: "+this);
+        }        
+        this.markedForUnload = true;
+    }
+    
+    public boolean isDisposed() {
+        return this.isDisposed.get();
+    }
+    
+    public void markDisposed() {
+        this.isDisposed.set(true);
     }    
 }

@@ -1,8 +1,10 @@
 package de.codesourcery.voxelengine.engine;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -15,19 +17,20 @@ import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Frustum;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
-import com.badlogic.gdx.utils.Disposable;
 
 import de.codesourcery.voxelengine.shaders.ShaderManager;
 
-public class WorldRenderer implements Disposable
+public class WorldRenderer
 {
     private static final Logger LOG = Logger.getLogger(WorldRenderer.class);
+    
+    private static final boolean DEBUG = false;
     
     /**
      * How far 
      */
-    protected static final float RENDER_DISTANCE = 100f;
-    protected static final float RENDER_DISTANCE_SQUARED = RENDER_DISTANCE*RENDER_DISTANCE;
+    public static final float RENDER_DISTANCE = 100f;
+    public static final float RENDER_DISTANCE_SQUARED = RENDER_DISTANCE*RENDER_DISTANCE;
     
     public static final boolean RENDER_WIREFRAME =false;
     
@@ -38,6 +41,9 @@ public class WorldRenderer implements Disposable
     private final ShaderProgram shader;
     
     private int frameCounter; // TODO: Remove debug code
+    
+    private final Vector3 chunkCenter = new Vector3();
+    private final Set<ChunkKey> visibleChunks = new HashSet<>();
 
     public WorldRenderer(World world,ShaderManager shaderManager) 
     {
@@ -45,6 +51,10 @@ public class WorldRenderer implements Disposable
         Validate.notNull(shaderManager,"shaderManager must not be NULL");
         this.world = world;
         this.shader = shaderManager.getShader( RENDER_WIREFRAME ? ShaderManager.WIREFRAME_SHADER : ShaderManager.FLAT_SHADER );
+    }
+    
+    public int getLoadedChunkCount() {
+        return loadedChunks.size();
     }
     
     public void render(float deltaTime) 
@@ -58,47 +68,116 @@ public class WorldRenderer implements Disposable
         final ChunkKey center = world.getChunkCoordinates( world.camera.position );
         
         // determine chunks that are inside the view frustum
-        final int distanceInChunks = 1+ (int) (RENDER_DISTANCE/World.WORLD_CHUNK_WIDTH); 
+        final int distanceInChunks = (int) Math.ceil(RENDER_DISTANCE/World.WORLD_CHUNK_WIDTH); 
+
+        visibleChunks.clear();
         
-        final Set<ChunkKey> visibleChunks = new HashSet<>();
         final Frustum f = world.camera.frustum;
-        final Vector3 chunkCenter = new Vector3();
-        for ( int x = center.x - distanceInChunks, xmax = center.x + distanceInChunks  ; x < xmax ; x++ ) 
+        
+        final List<ChunkKey> toLoad = new ArrayList<>( 50 );
+        for ( int x = center.x - distanceInChunks, xmax = center.x + distanceInChunks  ; x <= xmax ; x++ ) 
         {
             chunkCenter.x = x * World.WORLD_CHUNK_WIDTH;
-            for ( int y = center.y - distanceInChunks, ymax = center.y + distanceInChunks  ; y < ymax ; y++ ) 
+            for ( int y = center.y - distanceInChunks, ymax = center.y + distanceInChunks  ; y <= ymax ; y++ ) 
             {
                 chunkCenter.y = y * World.WORLD_CHUNK_WIDTH;
-                for ( int z = center.z - distanceInChunks, zmax = center.z + distanceInChunks  ; z < zmax ; z++ ) 
+                for ( int z = center.z - distanceInChunks, zmax = center.z + distanceInChunks  ; z <= zmax ; z++ ) 
                 {
                     chunkCenter.z = z * World.WORLD_CHUNK_WIDTH;
-                    if ( f.sphereInFrustum( chunkCenter , World.WORLD_CHUNK_HALF_WIDTH ) ) { // TODO: Maybe check against actual bounding box here? Slower but more accurate
+                    // TODO: Maybe check against actual bounding box here? Slower but more accurate
+                    if ( f.sphereInFrustum( chunkCenter , World.WORLD_CHUNK_HALF_WIDTH ) ) 
+                    { 
                         final ChunkKey key = new ChunkKey(x,y,z );
                         visibleChunks.add( key  );
+                        if ( ! loadedChunks.containsKey( key ) ) 
+                        {
+                            toLoad.add( key );
+                        }
                     }
                 }                 
             }            
         }
         
-        for (Iterator<Entry<ChunkKey, Chunk>> it = loadedChunks.entrySet() .iterator(); it.hasNext();) 
+        final List<Chunk> toUnload = new ArrayList<>( loadedChunks.size() );
+        for (Iterator<Entry<ChunkKey, Chunk>> it = loadedChunks.entrySet().iterator(); it.hasNext();) 
         {
             final Chunk chunk = it.next().getValue();
             if ( ! visibleChunks.contains( chunk.chunkKey ) && chunk.distanceSquared( world.camera.position ) > RENDER_DISTANCE_SQUARED ) 
             {
-                chunk.clearFlags( Chunk.FLAG_DONT_UNLOAD );
                 it.remove();
-                world.chunkManager.unloadChunk( chunk );
+                chunk.setIsInUse( false ); // crucial otherwise chunk unloading will fail because of tripped sanity check
+                toUnload.add( chunk );
+            }
+        }
+        
+        // bluk-unload chunks
+        if ( ! toUnload.isEmpty() ) {
+            world.chunkManager.unloadChunks( toUnload );
+        }
+        
+        // bulk-load missing chunks
+        if ( ! toLoad.isEmpty() ) 
+        {
+            final List<Chunk> loaded = world.chunkManager.getChunks( toLoad );
+            
+//            // TODO: Remove sanity check
+//            if ( toLoad.size() != loaded.size() ) {
+//                throw new RuntimeException("Size mismatch: Expected "+toLoad.size()+" but got "+loaded.size());
+//            }
+//            final Set<ChunkKey> actual = new HashSet<>();
+//            for ( Chunk c : loaded ) 
+//            {
+//                if ( actual.contains( c.chunkKey ) ) 
+//                {
+//                    loaded.forEach( chunk -> LOG.error("render(): LOADED "+chunk) );
+//                    throw new RuntimeException("Duplicate load: "+c+", got already "+actual);
+//                }
+//                actual.add( c.chunkKey );
+//            }
+//            boolean fail = false;
+//            for ( ChunkKey key : toLoad ) {
+//                if ( ! actual.contains( key ) ) 
+//                {
+//                    LOG.error("render(): Missing from list "+key);
+//                    fail = true;
+//                }
+//            }
+//            for ( ChunkKey key : actual) {
+//                if ( ! toLoad.contains( key ) ) 
+//                {
+//                    LOG.error("render(): Superfluous: "+key);
+//                    fail = true;
+//                }
+//            }
+//            if ( actual.size() != toLoad.size() ) {
+//                LOG.error("render(): Size mismatch: Expected "+toLoad.size()+" but got "+actual.size());
+//                fail = true;
+//            }
+//            if ( fail ) {
+//                throw new RuntimeException("Mismatch: Expected "+toLoad+" but got "+actual);
+//            }
+//            // TODO: Remove sanity check
+            
+            for ( Chunk chunk : loaded ) 
+            {
+                if ( doLog && LOG.isDebugEnabled() ) {
+                    LOG.debug("render(): Fetched chunk "+chunk);
+                }  
+                loadedChunks.put( chunk.chunkKey , chunk );
+                if ( chunk.isNotEmpty() && chunk.needsRebuild() ) 
+                {
+                    buildMesh( chunk );
+                }
             }
         }
         
         if ( doLog && LOG.isDebugEnabled() ) {
-            LOG.debug("render(): Loaded chunks: "+world.chunkManager.getLoadedChunkCount()+" / in-range: "+loadedChunks.size());
+            LOG.debug("render(): Chunks loaded: "+loadedChunks.size() );
         }           
         
         /*
          * Rebuild & render visible chunks.
          */
-        
         shader.begin();
         shader.setUniformMatrix("u_modelView", camera.view );
         shader.setUniformMatrix("u_modelViewProjection", camera.combined );
@@ -108,19 +187,9 @@ public class WorldRenderer implements Disposable
         int totalTriangles = 0;
         for ( ChunkKey key : visibleChunks ) 
         {
-            Chunk chunk = loadedChunks.get(key);
-            if ( chunk == null )
-            {
-                chunk = world.chunkManager.getChunk( key );
-                loadedChunks.put( key , chunk  );
-            } 
-            
-            chunk.setFlags( Chunk.FLAG_DONT_UNLOAD );
+            final Chunk chunk = loadedChunks.get(key);
             if ( chunk.isNotEmpty() ) 
             {
-                if ( chunk.needsRebuild() ) { 
-                    buildMesh( chunk );
-                }
                 totalTriangles += chunk.mesh.render( shader , camera , doLog );
             }
         }
@@ -137,15 +206,5 @@ public class WorldRenderer implements Disposable
             chunk.mesh = new VoxelMesh( world.chunkManager );
         }
         chunk.mesh.buildMesh( chunk );
-    }
-
-    @Override
-    public void dispose() 
-    {
-        for ( Chunk chunk : loadedChunks.values() ) 
-        {
-            chunk.clearFlags( Chunk.FLAG_DONT_UNLOAD );
-            world.chunkManager.unloadChunk( chunk );
-        }
     }
 }

@@ -12,7 +12,6 @@ import com.badlogic.gdx.graphics.GL30;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 
 import de.codesourcery.voxelengine.engine.ChunkManager;
 import de.codesourcery.voxelengine.engine.PlayerController;
@@ -49,7 +48,7 @@ public class ApplicationMain implements ApplicationListener {
         logger = new FPSLogger();
         camera = new PerspectiveCamera();
         camera.near = 0.1f;
-        camera.far = 1000f;
+        camera.far = WorldRenderer.RENDER_DISTANCE;
         
         spriteBatch = new SpriteBatch();
         chunkManager = new ChunkManager( CHUNK_DIR );
@@ -69,7 +68,6 @@ public class ApplicationMain implements ApplicationListener {
     @Override
     public void dispose() 
     {
-        renderer.dispose();
         spriteBatch.dispose();
         font.dispose();
         chunkManager.dispose();
@@ -117,26 +115,30 @@ public class ApplicationMain implements ApplicationListener {
         Gdx.graphics.getGL30().glDisable( GL30.GL_CULL_FACE );
 
         spriteBatch.begin();
-        final int centerX = Gdx.graphics.getWidth()/2;
-        final int centerY = Gdx.graphics.getHeight()/2;
 
         // debug output
         final float fontHeight = 12;
 
-        float y = Gdx.graphics.getHeight() - 15;
+        float y = Gdx.graphics.getHeight() - fontHeight;
         font.draw(spriteBatch, "FPS: "+Gdx.graphics.getFramesPerSecond(), 10 , y );
         
-        y -= 15;
+        y -= fontHeight;
+        font.draw(spriteBatch, "Current chunk: "+world.player.getCurrentChunk(), 10, y );
+        
+        y -= fontHeight;
         font.draw(spriteBatch, "Camera pos: "+camera.position, 10, y );
         
-        y -= 15;
+        y -= fontHeight;
         font.draw(spriteBatch, "Player feet pos: "+world.player.feetPosition() , 10, y );
         
-        y -= 15;
+        y -= fontHeight;
         font.draw(spriteBatch, "Player head pos: "+world.player.headPosition(), 10, y );        
         
-        y -= 15;
+        y -= fontHeight;
         font.draw(spriteBatch, "Player direction: "+world.player.direction, 10, y );
+        
+        y -= fontHeight;
+        font.draw(spriteBatch, "Loaded chunks: "+renderer.getLoadedChunkCount(), 10, y );        
         
         spriteBatch.end();        
     }

@@ -19,13 +19,6 @@ public final class ChunkKey {
     }
 
     @Override
-    public int hashCode() {
-        int result = 31 + x;
-        result = 31 * result + y;
-        return 31 * result + z;
-    }
-
-    @Override
     public boolean equals(Object obj) 
     {
         if ( this == obj ) {
@@ -33,7 +26,6 @@ public final class ChunkKey {
         }        
         if ( obj instanceof ChunkKey ) 
         {
-
             final ChunkKey that = (ChunkKey) obj;
             return this.x == that.x &&
                    this.y == that.y &&
@@ -42,6 +34,14 @@ public final class ChunkKey {
         return true;
     }    
     
+    @Override
+    public int hashCode() 
+    {
+        int result = 31 + x;
+        result = 31 * result + y;
+        return 31 * result + z;
+    }
+
     public ChunkKey frontNeighbour() {
         return new ChunkKey( x , y , z+1 );
     }
