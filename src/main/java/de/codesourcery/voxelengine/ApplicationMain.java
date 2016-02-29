@@ -117,7 +117,7 @@ public class ApplicationMain implements ApplicationListener {
         spriteBatch.begin();
 
         // debug output
-        final float fontHeight = 12;
+        final float fontHeight = 14;
 
         float y = Gdx.graphics.getHeight() - fontHeight;
         font.draw(spriteBatch, "FPS: "+Gdx.graphics.getFramesPerSecond(), 10 , y );
@@ -138,7 +138,10 @@ public class ApplicationMain implements ApplicationListener {
         font.draw(spriteBatch, "Player direction: "+world.player.direction, 10, y );
         
         y -= fontHeight;
-        font.draw(spriteBatch, "Loaded chunks: "+renderer.getLoadedChunkCount(), 10, y );        
+        font.draw(spriteBatch, "Loaded chunks: "+renderer.getLoadedChunkCount(), 10, y );       
+
+        y -= fontHeight;
+        font.draw(spriteBatch, "Visible chunks: "+renderer.getVisibleChunkCount(), 10, y );          
         
         spriteBatch.end();        
     }

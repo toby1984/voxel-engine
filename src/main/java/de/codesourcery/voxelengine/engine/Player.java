@@ -1,6 +1,7 @@
 package de.codesourcery.voxelengine.engine;
 
 import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.math.Matrix3;
 import com.badlogic.gdx.math.Vector3;
 
 public class Player 
@@ -10,6 +11,8 @@ public class Player
      */
     public static float PLAYER_HEIGHT = 1.75f*World.WORLD_CHUNK_BLOCK_SIZE;
     public static float MAX_VELOCITY= 5f;
+    
+    public static final boolean CAMERA_MODE_FLYING = false;
     
     /**
      * Player Y position is adjusted by deltaTime * COLLISION_Y_ADJUST
@@ -34,6 +37,10 @@ public class Player
     
     private final World world;
     
+    private boolean cameraNeedsUpdate = true;
+    
+    private final Matrix3 normalMatrix = new Matrix3();
+    
     public Player(World world) {
         this.world = world;
     }
@@ -44,14 +51,25 @@ public class Player
     
     public void update(float delta) 
     {
-        handleCollisions(delta);
+        if ( ! CAMERA_MODE_FLYING ) {
+            handleCollisions(delta);
+        }
         
         // update camera
         updateHeadPosition();
         
-        final PerspectiveCamera camera = world.camera;
-        camera.direction.set( direction );
-        camera.update(true);
+        if ( cameraNeedsUpdate ) 
+        {
+            final PerspectiveCamera camera = world.camera;
+            world.camera.position.set( headPosition );            
+            camera.direction.set( direction );
+            camera.update(true);
+            normalMatrix.set( camera.view ).inv().transpose();
+        }
+    }
+    
+    public Matrix3 normalMatrix() {
+        return normalMatrix;
     }
 
     private void handleCollisions(float delta) 
@@ -60,6 +78,7 @@ public class Player
         int blockType = headChunk.getBlockType( headChunk.blockIndex( headPosition ) );
         if ( blockType != BlockType.BLOCKTYPE_AIR ) { // head is blocked, move up
             feetPosition.y += delta * 5f;
+            cameraNeedsUpdate=true;
             return;
         } 
         
@@ -75,6 +94,7 @@ public class Player
             } else {
                 feetPosition.y = blockTopY;
             }
+            cameraNeedsUpdate=true;
             return;
         } 
         
@@ -88,19 +108,27 @@ public class Player
         blockType = feetChunk.getBlockType( block.x , block.y , block.z );
         if ( blockType == BlockType.BLOCKTYPE_AIR ) { // oops, need to fall down
             feetPosition.y -= delta * COLLISION_Y_ADJUST;
+            cameraNeedsUpdate=true;
+            if ( feetPosition.y < 0 ) {
+                feetPosition.y = 0;
+            }
         } 
         else 
         { 
             // solid block, make sure we're standing right on the top surface
             // TODO: Adjust Y gradually.
             final float blockTopY = feetChunk.center.y - World.WORLD_CHUNK_HALF_WIDTH + block.y * World.WORLD_CHUNK_BLOCK_SIZE;
-            feetPosition.y = blockTopY;
+            if ( feetPosition.y != blockTopY ) {
+                feetPosition.y = blockTopY;
+                cameraNeedsUpdate=true;
+            }
         }
     }
     
     public void setPosition(float x, float y, float z) {
         this.feetPosition.set(x,y,z);
         updateHeadPosition();
+        cameraNeedsUpdate = true;
     }      
     
     public void setPosition(Vector3 pos) {
@@ -118,7 +146,6 @@ public class Player
     private void updateHeadPosition() 
     {
         headPosition.set( feetPosition.x , feetPosition.y + PLAYER_HEIGHT , feetPosition.z );
-        world.camera.position.set( headPosition );
     }
     
     public void rotate(Vector3 axis,float angle) 
@@ -138,12 +165,14 @@ public class Player
     {
         feetPosition.add( v );
         updateHeadPosition();
+        cameraNeedsUpdate=true;
     }
     
     public void translate(float dx,float dy,float dz)
     {
         feetPosition.add( dx,dy,dz );
         updateHeadPosition();
+        cameraNeedsUpdate=true;
     }
     
     public void lookAt (float x, float y, float z) 
@@ -161,13 +190,14 @@ public class Player
             direction.set(tmpVec);
             normalizeUp();
         }
+        cameraNeedsUpdate = true;
     }
 
     public void lookAt (Vector3 target) {
         lookAt(target.x, target.y, target.z);
     }   
     
-    public void normalizeUp () {
+    private void normalizeUp () {
         tmpVec.set(direction).crs(up).nor();
         up.set(tmpVec).crs(direction).nor();
     }

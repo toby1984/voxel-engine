@@ -29,7 +29,7 @@ public class WorldRenderer
     /**
      * How far 
      */
-    public static final float RENDER_DISTANCE = 100f;
+    public static final float RENDER_DISTANCE = World.WORLD_CHUNK_WIDTH*3;
     public static final float RENDER_DISTANCE_SQUARED = RENDER_DISTANCE*RENDER_DISTANCE;
     
     public static final boolean RENDER_WIREFRAME =false;
@@ -40,7 +40,10 @@ public class WorldRenderer
     
     private final ShaderProgram shader;
     
+    private int visibleChunkCount=0;
     private int frameCounter; // TODO: Remove debug code
+    
+    private final VertexDataBuffer vertexBuffer = new VertexDataBuffer();
     
     private final Vector3 chunkCenter = new Vector3();
     private final Set<ChunkKey> visibleChunks = new HashSet<>();
@@ -57,13 +60,17 @@ public class WorldRenderer
         return loadedChunks.size();
     }
     
+    public int getVisibleChunkCount() {
+        return visibleChunkCount;
+    }
+    
     public void render(float deltaTime) 
     {
         final PerspectiveCamera camera = world.camera;
         
         frameCounter++;
         
-        final boolean doLog = false; // (frameCounter% 300) == 0;
+        final boolean doLog = (frameCounter% 300) == 0;
         
         final ChunkKey center = world.getChunkCoordinates( world.camera.position );
         
@@ -74,6 +81,7 @@ public class WorldRenderer
         
         final Frustum f = world.camera.frustum;
         
+        visibleChunkCount = 0;
         final List<ChunkKey> toLoad = new ArrayList<>( 50 );
         for ( int x = center.x - distanceInChunks, xmax = center.x + distanceInChunks  ; x <= xmax ; x++ ) 
         {
@@ -87,6 +95,7 @@ public class WorldRenderer
                     // TODO: Maybe check against actual bounding box here? Slower but more accurate
                     if ( f.sphereInFrustum( chunkCenter , World.WORLD_CHUNK_HALF_WIDTH ) ) 
                     { 
+                        visibleChunkCount++;
                         final ChunkKey key = new ChunkKey(x,y,z );
                         visibleChunks.add( key  );
                         if ( ! loadedChunks.containsKey( key ) ) 
@@ -119,45 +128,6 @@ public class WorldRenderer
         if ( ! toLoad.isEmpty() ) 
         {
             final List<Chunk> loaded = world.chunkManager.getChunks( toLoad );
-            
-//            // TODO: Remove sanity check
-//            if ( toLoad.size() != loaded.size() ) {
-//                throw new RuntimeException("Size mismatch: Expected "+toLoad.size()+" but got "+loaded.size());
-//            }
-//            final Set<ChunkKey> actual = new HashSet<>();
-//            for ( Chunk c : loaded ) 
-//            {
-//                if ( actual.contains( c.chunkKey ) ) 
-//                {
-//                    loaded.forEach( chunk -> LOG.error("render(): LOADED "+chunk) );
-//                    throw new RuntimeException("Duplicate load: "+c+", got already "+actual);
-//                }
-//                actual.add( c.chunkKey );
-//            }
-//            boolean fail = false;
-//            for ( ChunkKey key : toLoad ) {
-//                if ( ! actual.contains( key ) ) 
-//                {
-//                    LOG.error("render(): Missing from list "+key);
-//                    fail = true;
-//                }
-//            }
-//            for ( ChunkKey key : actual) {
-//                if ( ! toLoad.contains( key ) ) 
-//                {
-//                    LOG.error("render(): Superfluous: "+key);
-//                    fail = true;
-//                }
-//            }
-//            if ( actual.size() != toLoad.size() ) {
-//                LOG.error("render(): Size mismatch: Expected "+toLoad.size()+" but got "+actual.size());
-//                fail = true;
-//            }
-//            if ( fail ) {
-//                throw new RuntimeException("Mismatch: Expected "+toLoad+" but got "+actual);
-//            }
-//            // TODO: Remove sanity check
-            
             for ( Chunk chunk : loaded ) 
             {
                 if ( doLog && LOG.isDebugEnabled() ) {
@@ -179,10 +149,12 @@ public class WorldRenderer
          * Rebuild & render visible chunks.
          */
         shader.begin();
-        shader.setUniformMatrix("u_modelView", camera.view );
+        
+        if ( ! WorldRenderer.RENDER_WIREFRAME ) {
+            shader.setUniformMatrix("u_modelView", camera.view );
+            shader.setUniformMatrix("u_normalMatrix", world.player.normalMatrix() );
+        }
         shader.setUniformMatrix("u_modelViewProjection", camera.combined );
-        final Matrix4 normalMatrix = camera.view.cpy().toNormalMatrix();
-        shader.setUniformMatrix("u_normalMatrix", normalMatrix );
         
         int totalTriangles = 0;
         for ( ChunkKey key : visibleChunks ) 
@@ -205,6 +177,6 @@ public class WorldRenderer
         {
             chunk.mesh = new VoxelMesh( world.chunkManager );
         }
-        chunk.mesh.buildMesh( chunk );
+        chunk.mesh.buildMesh( chunk , vertexBuffer );
     }
 }

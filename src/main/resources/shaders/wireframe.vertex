@@ -3,6 +3,7 @@
 // per-vertex attributes
 in vec4 v_position;
 in vec4 v_color;
+in vec3 v_normal;
       
 uniform mat4 u_modelViewProjection;
 

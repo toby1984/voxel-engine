@@ -16,48 +16,48 @@ import com.badlogic.gdx.utils.Disposable;
 public class VoxelMesh implements Disposable 
 {
     private static final Logger LOG = Logger.getLogger(VoxelMesh.class);
-    
+
     private static final int SIDE_BACK   = 0;
     private static final int SIDE_FRONT  = 1;
     private static final int SIDE_LEFT   = 2;
     private static final int SIDE_RIGHT  = 3;
     private static final int SIDE_TOP    = 4;
     private static final int SIDE_BOTTOM = 5;
-    
+
     // TODO: Test code with fixed colors, remove when done
     private static final float[] COLOR_SOLID_1 = new float[] { 1 , 0 , 0 , 1 }; // r,g,b,a
     private static final float[] COLOR_SOLID_2 = new float[] { 0 , 1 , 0 , 1 }; // r,g,b,a
-    
+
     private static final VertexAttribute ATTR_POSITION = new VertexAttribute( Usage.Position , 3 , "v_position" ); 
     private static final VertexAttribute ATTR_NORMAL = new VertexAttribute( Usage.Normal , 3 , "v_normal" );
     private static final VertexAttribute ATTR_COLOR = new VertexAttribute( Usage.ColorUnpacked , 4 , "v_color" );
-    
+
     public static final int VERTEX_FLOAT_SIZE = 3 + 3 + 4;
     private static final VertexAttributes VERTEX_ATTRIBUTES = new VertexAttributes( ATTR_POSITION,ATTR_NORMAL,ATTR_COLOR );    
-    
+
     private static final Vector3 NORMAL_BACK    = new Vector3( 0, 0,-1);
     private static final Vector3 NORMAL_FRONT   = new Vector3( 0, 0, 1);
     private static final Vector3 NORMAL_LEFT    = new Vector3(-1, 0, 0);
     private static final Vector3 NORMAL_RIGHT   = new Vector3( 1, 0, 0);
     private static final Vector3 NORMAL_TOP     = new Vector3( 0, 1, 0);
     private static final Vector3 NORMAL_BOTTOM  = new Vector3( 0,-1, 0);
-    
+
     private final ChunkManager chunkManager; 
-    
+
     private Chunk chunk;
+    private int vertexCount;
     private VertexBufferObjectWithVAO vbo;
-    
-    private int vertexPtr=0;
-    private float[] vertexData = new float[100 * VERTEX_FLOAT_SIZE ];
-    
+
+    private VertexDataBuffer buffer;
+
     private final Quad quad = new Quad();
-    
+
     protected static final class Quad
     {
         public float centerX,centerY,centerZ;
         public int side;
         public int blockIndex;
-        
+
         public void set(int blockIndex,float centerX,float centerY,float centerZ,int side) 
         {
             this.centerX = centerX;
@@ -67,7 +67,7 @@ public class VoxelMesh implements Disposable
             this.side = side;
         }        
     }
-    
+
     public VoxelMesh(ChunkManager chunkManager) {
         this.chunkManager = chunkManager;
     }
@@ -99,19 +99,21 @@ public class VoxelMesh implements Disposable
         }
         addTriangle( quad , halfBlockSize );
     }
-    
-    public void buildMesh(Chunk chunk)
+
+    public void buildMesh(Chunk chunk,VertexDataBuffer buffer)
     {
-        this.vertexPtr = 0;
+        this.buffer = buffer;
+        this.buffer.vertexPtr = 0;
+        this.vertexCount = 0;
         this.chunk = chunk;
-        
+
         // Create quads for all block sides that are adjacent 
         // to an empty neighbour block
         final int chunkSize = chunk.chunkSize;
         final float blockSize = chunk.blocksize;
         final float halfBlockSize = blockSize/2f;
         final float halfWidth = chunkSize*blockSize/2f;
-        
+
         float bx = chunk.center.x - halfWidth + halfBlockSize;
         for ( int x = 0 ; x < chunkSize ; x++ , bx += blockSize ) 
         {
@@ -147,9 +149,24 @@ public class VoxelMesh implements Disposable
                 }
             }
         }
-        
-        populateVBO();
-        
+
+        vertexCount = buffer.vertexPtr / VERTEX_FLOAT_SIZE;
+
+        final int triangleCount = vertexCount/3;
+
+        if ( vbo == null || vbo.getNumMaxVertices() < vertexCount ) 
+        {
+            if ( vbo != null ) {
+                vbo.dispose();
+            }
+            LOG.info("populateVBO(): Allocating VBO for "+vertexCount+" vertices");
+            vbo = new VertexBufferObjectWithVAO( false , vertexCount , VERTEX_ATTRIBUTES );
+        }
+
+        final float sizeInMb = (buffer.vertexPtr*4f)/(1024f*1024f);
+        LOG.info("populateVBO(): Uploading "+buffer.vertexPtr+" floats ("+sizeInMb+" MB, "+triangleCount+" triangles)");
+        vbo.setVertices( buffer.vertexData , 0 , buffer.vertexPtr );
+
         // dispose old mesh
         if ( chunk.mesh != this ) 
         {
@@ -160,25 +177,7 @@ public class VoxelMesh implements Disposable
         }
         chunk.clearFlags( Chunk.FLAG_NEEDS_REBUILD );
     }
-    
-    private void populateVBO() 
-    {
-        final int vertexCount = vertexPtr / VERTEX_FLOAT_SIZE;
-        final int triangleCount = vertexCount/3;
-        
-        if ( vbo == null || vbo.getNumMaxVertices() < vertexCount ) 
-        {
-            if ( vbo != null ) {
-                vbo.dispose();
-            }
-            LOG.info("populateVBO(): Allocating VBO for "+vertexCount+" vertices");
-            vbo = new VertexBufferObjectWithVAO( false , vertexCount , VERTEX_ATTRIBUTES );
-        }
-        
-        LOG.info("populateVBO(): Uploading "+vertexPtr+" floats ("+triangleCount+" triangles)");
-        vbo.setVertices( vertexData , 0 , vertexPtr );
-    }
-    
+
     private void addTriangle(Quad quad,float halfBlockSize) 
     {
         // vertex data is
@@ -189,7 +188,7 @@ public class VoxelMesh implements Disposable
         final Vector3 p1 = new Vector3();
         final Vector3 p2 = new Vector3();
         final Vector3 p3 = new Vector3();
-        
+
         final float[] color;
         switch ( chunk.getBlockType( quad.blockIndex ) ) {
             case BlockType.BLOCKTYPE_SOLID_1: color = COLOR_SOLID_1; break;
@@ -197,7 +196,7 @@ public class VoxelMesh implements Disposable
             default:
                 throw new RuntimeException("Unhandled block type: "+chunk.getBlockType( quad.blockIndex ) );
         }
-        
+
         switch( quad.side ) 
         {
             case SIDE_BACK:  
@@ -205,83 +204,136 @@ public class VoxelMesh implements Disposable
                 p1.x = p0.x                        ; p1.y = quad.centerY + halfBlockSize; p1.z = quad.centerZ;
                 p2.x = quad.centerX + halfBlockSize; p2.y = quad.centerY + halfBlockSize; p2.z = quad.centerZ;
                 p3.x = p2.x                        ; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ;
-                addTriangle( p0 , p1 , p2 , NORMAL_BACK , color );
-                addTriangle( p0 , p2 , p3 , NORMAL_BACK , color );
+                if ( WorldRenderer.RENDER_WIREFRAME ) {
+                    addQuad(p0,p1,p2,p3, NORMAL_BACK , color );
+                } else {
+                    addTriangle( p0 , p1 , p2 , NORMAL_BACK , color );
+                    addTriangle( p0 , p2 , p3 , NORMAL_BACK , color );
+                }
                 break;
             case SIDE_FRONT:   
                 p0.x = quad.centerX - halfBlockSize; p0.y = quad.centerY - halfBlockSize; p0.z = quad.centerZ;
                 p1.x = p0.x                        ; p1.y = quad.centerY + halfBlockSize; p1.z = quad.centerZ;
                 p2.x = quad.centerX + halfBlockSize; p2.y = quad.centerY + halfBlockSize; p2.z = quad.centerZ;
                 p3.x = p2.x                        ; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ;
-                addTriangle( p0 , p2 , p1 , NORMAL_FRONT , color );
-                addTriangle( p0 , p3 , p2 , NORMAL_FRONT , color );
+                
+                if ( WorldRenderer.RENDER_WIREFRAME ) {
+                    addQuad(p0,p1,p2,p3, NORMAL_FRONT , color );
+                } else {
+                    addTriangle( p0 , p2 , p1 , NORMAL_FRONT , color );
+                    addTriangle( p0 , p3 , p2 , NORMAL_FRONT , color );
+                }
                 break;
             case SIDE_LEFT:    
                 p0.x = quad.centerX ; p0.y = quad.centerY - halfBlockSize; p0.z = quad.centerZ - halfBlockSize;
                 p1.x = quad.centerX ; p1.y = quad.centerY + halfBlockSize; p1.z = quad.centerZ - halfBlockSize;
                 p2.x = quad.centerX ; p2.y = quad.centerY + halfBlockSize; p2.z = quad.centerZ + halfBlockSize;
                 p3.x = quad.centerX ; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ + halfBlockSize;
-                addTriangle( p0 , p3 , p1 , NORMAL_LEFT , color );
-                addTriangle( p3 , p2 , p1 , NORMAL_LEFT , color );
+                
+                if ( WorldRenderer.RENDER_WIREFRAME ) {
+                    addQuad(p0,p1,p2,p3, NORMAL_LEFT , color );
+                } else {
+                    addTriangle( p0 , p3 , p1 , NORMAL_LEFT , color );
+                    addTriangle( p3 , p2 , p1 , NORMAL_LEFT , color );
+                }
                 break;
             case SIDE_RIGHT:   
                 p0.x = quad.centerX ; p0.y = quad.centerY - halfBlockSize; p0.z = quad.centerZ - halfBlockSize;
                 p1.x = quad.centerX ; p1.y = quad.centerY + halfBlockSize; p1.z = quad.centerZ - halfBlockSize;
                 p2.x = quad.centerX ; p2.y = quad.centerY + halfBlockSize; p2.z = quad.centerZ + halfBlockSize;
                 p3.x = quad.centerX ; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ + halfBlockSize;
-                addTriangle( p0 , p1 , p3 , NORMAL_RIGHT , color );
-                addTriangle( p3 , p1 , p2 , NORMAL_RIGHT , color );                
+                
+                if ( WorldRenderer.RENDER_WIREFRAME ) {
+                    addQuad(p0,p1,p2,p3, NORMAL_RIGHT , color );
+                } else {
+                    addTriangle( p0 , p1 , p3 , NORMAL_RIGHT , color );
+                    addTriangle( p3 , p1 , p2 , NORMAL_RIGHT , color );
+                }
                 break;
             case SIDE_TOP:     
                 p0.x = quad.centerX - halfBlockSize ; p0.y = quad.centerY ; p0.z = quad.centerZ + halfBlockSize;
                 p1.x = quad.centerX + halfBlockSize ; p1.y = quad.centerY ; p1.z = quad.centerZ + halfBlockSize;
                 p2.x = quad.centerX + halfBlockSize ; p2.y = quad.centerY ; p2.z = quad.centerZ - halfBlockSize;
                 p3.x = quad.centerX - halfBlockSize ; p3.y = quad.centerY ; p3.z = quad.centerZ - halfBlockSize;
-                addTriangle( p0 , p2 , p3 , NORMAL_TOP , color );
-                addTriangle( p0 , p1 , p2 , NORMAL_TOP , color );    
+                
+                if ( WorldRenderer.RENDER_WIREFRAME ) {
+                    addQuad(p0,p1,p2,p3, NORMAL_TOP , color );
+                } else {
+                    addTriangle( p0 , p2 , p3 , NORMAL_TOP , color );
+                    addTriangle( p0 , p1 , p2 , NORMAL_TOP , color );
+                }
                 break;
             case SIDE_BOTTOM:  
                 p0.x = quad.centerX - halfBlockSize ; p0.y = quad.centerY ; p0.z = quad.centerZ + halfBlockSize;
                 p1.x = quad.centerX + halfBlockSize ; p1.y = quad.centerY ; p1.z = quad.centerZ + halfBlockSize;
                 p2.x = quad.centerX + halfBlockSize ; p2.y = quad.centerY ; p2.z = quad.centerZ - halfBlockSize;
                 p3.x = quad.centerX - halfBlockSize ; p3.y = quad.centerY ; p3.z = quad.centerZ - halfBlockSize;
-                addTriangle( p0 , p3 , p2 , NORMAL_BOTTOM , color );
-                addTriangle( p0 , p2 , p1 , NORMAL_BOTTOM , color ); 
+                
+                if ( WorldRenderer.RENDER_WIREFRAME ) {
+                    addQuad(p0,p1,p2,p3, NORMAL_BOTTOM , color );
+                } else {               
+                    addTriangle( p0 , p3 , p2 , NORMAL_BOTTOM , color );
+                    addTriangle( p0 , p2 , p1 , NORMAL_BOTTOM , color );
+                }
                 break;
             default:
                 throw new IllegalArgumentException("Unhandled side: "+quad.side);
         }
     }   
-    
+
+    private void addQuad(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 p3,Vector3 normal,float[] color) 
+    {
+        final int bytesAvailable = buffer.vertexData.length - buffer.vertexPtr;
+        if ( bytesAvailable < 8 * VERTEX_FLOAT_SIZE ) {
+            final float[] tmp = new float[ buffer.vertexData.length + buffer.vertexData.length/2 ]; // add space for 100 more quads
+            System.arraycopy( buffer.vertexData , 0 , tmp , 0 , buffer.vertexPtr );
+            buffer.vertexData = tmp;
+        }
+        addVertex( p0 , normal , color );
+        addVertex( p1 , normal , color );
+
+        addVertex( p1 , normal , color );
+        addVertex( p2 , normal , color );
+
+        addVertex( p2 , normal , color );            
+        addVertex( p3 , normal , color );
+
+        addVertex( p3 , normal , color );
+        addVertex( p0 , normal , color );            
+    }     
+
     private void addTriangle(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 normal,float[] color) 
     {
-        final int bytesAvailable = vertexData.length - vertexPtr;
+        final int bytesAvailable = buffer.vertexData.length - buffer.vertexPtr;
         if ( bytesAvailable < 3*VERTEX_FLOAT_SIZE ) {
-            final float[] tmp = new float[ vertexData.length + 100*6*VERTEX_FLOAT_SIZE]; // add space for 100 more quads
-            System.arraycopy( vertexData , 0 , tmp , 0 , vertexPtr );
-            vertexData = tmp;
+            final float[] tmp = new float[ buffer.vertexData.length + buffer.vertexData.length/2 ]; 
+            System.arraycopy( buffer.vertexData , 0 , tmp , 0 , buffer.vertexPtr );
+            buffer.vertexData = tmp;
         }
         addVertex( p0 , normal , color );
         addVertex( p1 , normal , color );
         addVertex( p2 , normal , color );
     }    
-    
+
     private void addVertex(Vector3 p,Vector3 normal,float[] color) 
     {
+        final float[] vertexData = buffer.vertexData;
+        int vertexPtr = buffer.vertexPtr;
+
         vertexData[ vertexPtr    ] = p.x;
         vertexData[ vertexPtr+1  ] = p.y;
         vertexData[ vertexPtr+2  ] = p.z;
-                                 
+
         vertexData[ vertexPtr+3 ] = normal.x;
         vertexData[ vertexPtr+4 ] = normal.y;
         vertexData[ vertexPtr+5 ] = normal.z;
-        
+
         vertexData[ vertexPtr+6 ] = color[0];
         vertexData[ vertexPtr+7 ] = color[1];
         vertexData[ vertexPtr+8 ] = color[2];
         vertexData[ vertexPtr+9 ] = color[3];
-                
-        vertexPtr += VERTEX_FLOAT_SIZE;
+
+        buffer.vertexPtr += VERTEX_FLOAT_SIZE;
     }
 
     private boolean hasNoFrontNeighbour(int blockX,int blockY,int blockZ) 
@@ -291,7 +343,7 @@ public class VoxelMesh implements Disposable
         }
         return chunkManager.getChunk( chunk.chunkKey.frontNeighbour() ).isBlockEmpty( blockX , blockY , 0 );
     }
-    
+
     private boolean hasNoBackNeighbour(int blockX,int blockY,int blockZ) 
     {
         if ( blockZ-1 >= 0 ) {
@@ -300,7 +352,7 @@ public class VoxelMesh implements Disposable
         final Chunk neighbour = chunkManager.getChunk( chunk.chunkKey.backNeighbour() );
         return neighbour.isBlockEmpty( blockX , blockY , neighbour.chunkSize-1 );
     }    
-    
+
     private boolean hasNoLeftNeighbour(int blockX,int blockY,int blockZ) 
     {
         if ( blockX-1 >= 0 ) {
@@ -309,7 +361,7 @@ public class VoxelMesh implements Disposable
         final Chunk neighbour = chunkManager.getChunk( chunk.chunkKey.leftNeighbour() );
         return neighbour.isBlockEmpty( neighbour.chunkSize-1 , blockY , blockZ );
     }    
-    
+
     private boolean hasNoRightNeighbour(int blockX,int blockY,int blockZ) 
     {
         if ( blockX+1 < chunk.chunkSize ) {
@@ -318,7 +370,7 @@ public class VoxelMesh implements Disposable
         final Chunk neighbour = chunkManager.getChunk( chunk.chunkKey.rightNeighbour() );
         return neighbour.isBlockEmpty( 0 , blockY , blockZ );
     }   
-    
+
     private boolean hasNoTopNeighbour(int blockX,int blockY,int blockZ) 
     {
         if ( blockY+1 < chunk.chunkSize ) {
@@ -327,7 +379,7 @@ public class VoxelMesh implements Disposable
         final Chunk neighbour = chunkManager.getChunk( chunk.chunkKey.topNeighbour() );
         return neighbour.isBlockEmpty( blockX , 0 , blockZ );
     }  
-    
+
     private boolean hasNoBottomNeighbour(int blockX,int blockY,int blockZ) 
     {
         if ( blockY-1 >= 0 ) {
@@ -336,20 +388,24 @@ public class VoxelMesh implements Disposable
         final Chunk neighbour = chunkManager.getChunk( chunk.chunkKey.bottomNeighbour() );
         return neighbour.isBlockEmpty( blockX , neighbour.chunkSize-1 , blockZ );
     }     
-    
+
     public int render(ShaderProgram shader,Camera camera,boolean debug) 
     {
-        final int vertexCount = vertexPtr / VERTEX_FLOAT_SIZE;
+        final int vertexCount = buffer.vertexPtr / VERTEX_FLOAT_SIZE;
         if ( debug ) {
             LOG.debug("render(): Rendering mesh with "+(vertexCount/3)+" triangles ("+vertexCount+" vertices)");
         }
-        
+
         vbo.bind( shader );
-        Gdx.gl30.glDrawArrays( GL30.GL_TRIANGLES , 0 , vertexCount );
+        if ( WorldRenderer.RENDER_WIREFRAME ) {
+            Gdx.gl30.glDrawArrays( GL30.GL_LINES , 0 , vertexCount );
+        } else {
+            Gdx.gl30.glDrawArrays( GL30.GL_TRIANGLES , 0 , vertexCount );
+        }
         vbo.unbind( shader );
         return vertexCount/3;
     }
-    
+
     @Override
     public void dispose() 
     {

@@ -68,21 +68,29 @@ public class PlayerController extends InputAdapter
         
         if ( leftPressed ) {
             tmp.set( player.direction ).crs( player.up ).scl( -delta * TRANSLATION_UNITS );
-            tmp.y = 0;
+            if ( ! Player.CAMERA_MODE_FLYING) {
+                tmp.y = 0;
+            }
             player.translate( tmp );
         } else if ( rightPressed ) {
             tmp.set( player.direction ).crs( player.up ).scl( delta * TRANSLATION_UNITS );
-            tmp.y = 0;
+            if ( ! Player.CAMERA_MODE_FLYING) {
+                tmp.y = 0;
+            }
             player.translate( tmp );
         }
         if (forwardPressed) 
         {
             tmp.set(player.direction).scl(delta * TRANSLATION_UNITS);
-            tmp.y = 0;
+            if ( ! Player.CAMERA_MODE_FLYING) {
+                tmp.y = 0;
+            }
             player.translate(tmp);
         } else if (backwardPressed) {
             tmp.set(player.direction).scl(-delta * TRANSLATION_UNITS);
-            tmp.y = 0;
+            if ( ! Player.CAMERA_MODE_FLYING) {
+                tmp.y = 0;
+            }
             player.translate( tmp );
         }
     }

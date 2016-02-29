@@ -31,7 +31,7 @@ public class ChunkManager implements Disposable
 
     public static final int MAX_CACHE_SIZE = 32;
 
-    public static final boolean CLEAR_CHUNK_DIR = true;
+    public static final boolean CLEAR_CHUNK_DIR = false;
 
     private final File chunkDir;
 
@@ -372,15 +372,24 @@ public class ChunkManager implements Disposable
         {
             final int middle = World.WORLD_CHUNK_SIZE/2;
             //            chunk.setBlockType( middle , middle , middle , BlockType.BLOCKTYPE_SOLID_1 ); 
-            final int yMin = middle -2;
-            final int yMax = middle +2;
-            for ( int y = yMin ; y <= yMax ; y++ ) {
-                for ( int x = 0 ; x < World.WORLD_CHUNK_SIZE ; x++ ) 
+            final int yMin = middle-2;
+            final int yMax = middle+2;
+            
+            final float rSquared = (World.WORLD_CHUNK_HALF_WIDTH/4)*(World.WORLD_CHUNK_HALF_WIDTH/4);
+            float by = centerY - World.WORLD_CHUNK_HALF_WIDTH + World.WORLD_CHUNK_HALF_BLOCK_SIZE;
+            for ( int y = yMin ; y <=  yMax ; y++ , by += World.WORLD_CHUNK_BLOCK_SIZE ) 
+            {
+                float bx = centerX - World.WORLD_CHUNK_HALF_WIDTH + World.WORLD_CHUNK_HALF_BLOCK_SIZE;
+                for ( int x = 0 ; x < World.WORLD_CHUNK_SIZE ; x++ , bx += World.WORLD_CHUNK_BLOCK_SIZE ) 
                 {
-                    for ( int z = 0 ; z < World.WORLD_CHUNK_SIZE ; z++ ) 
+                    float bz = centerZ - World.WORLD_CHUNK_HALF_WIDTH + World.WORLD_CHUNK_HALF_BLOCK_SIZE;
+                    for ( int z = 0 ; z < World.WORLD_CHUNK_SIZE ; z++ , bz += World.WORLD_CHUNK_BLOCK_SIZE ) 
                     {
-                        final int blockType = rnd.nextInt( BlockType.MAX_BLOCK_TYPE+1 );
-                        chunk.setBlockType( x , y , z , blockType ); 
+//                        float dstSquared = (bx-centerX)*(bx-centerX)+(by-centerY)*(by-centerY)+(bz-centerZ)*(bz-centerZ);
+//                        if ( dstSquared < rSquared ) {
+//                            chunk.setBlockType( x , y , z , BlockType.BLOCKTYPE_SOLID_1 );
+//                        }
+                        chunk.setBlockType( x ,y , z , rnd.nextInt( BlockType.MAX_BLOCK_TYPE+1 ) );
                     }
                 }
             }
