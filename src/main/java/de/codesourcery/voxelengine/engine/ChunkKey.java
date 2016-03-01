@@ -17,6 +17,37 @@ public final class ChunkKey {
     public String toString() {
         return "Chunk["+x+","+y+","+z+"]";
     }
+    
+    public float dst(int otherx,int othery,int otherz) 
+    {
+        final int dx = otherx - this.x;
+        final int dy = othery - this.y;
+        final int dz = otherz - this.z;
+        return (float) Math.sqrt( dx*dx + dy*dy + dz*dz );
+    }  
+    
+    public float dst2(int otherx,int othery,int otherz) 
+    {
+        final int dx = otherx - this.x;
+        final int dy = othery - this.y;
+        final int dz = otherz - this.z;
+        return dx*dx + dy*dy + dz*dz;
+    }      
+    
+    public float dst(ChunkKey other) 
+    {
+        final int dx = other.x - this.x;
+        final int dy = other.y - this.y;
+        final int dz = other.z - this.z;
+        return (float) Math.sqrt( dx*dx + dy*dy + dz*dz );
+    }
+    
+    public float dst2(ChunkKey other) {
+        final int dx = other.x - this.x;
+        final int dy = other.y - this.y;
+        final int dz = other.z - this.z;
+        return dx*dx + dy*dy + dz*dz;
+    }    
 
     @Override
     public boolean equals(Object obj) 
@@ -27,11 +58,9 @@ public final class ChunkKey {
         if ( obj instanceof ChunkKey ) 
         {
             final ChunkKey that = (ChunkKey) obj;
-            return this.x == that.x &&
-                   this.y == that.y &&
-                   this.z == that.z;
+            return this.x == that.x && this.y == that.y && this.z == that.z;
         }
-        return true;
+        return false;
     }    
     
     @Override

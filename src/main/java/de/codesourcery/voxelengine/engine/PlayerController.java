@@ -26,7 +26,7 @@ public class PlayerController extends InputAdapter
 {
     public static final float ROTATION_ANGLE = 1.5f*360f;
     
-    public static final float TRANSLATION_UNITS = 2f; 
+    public static final float TRANSLATION_UNITS = 4f; 
     
     public static final int FORWARD = Keys.W;
     public static final int BACK = Keys.S;

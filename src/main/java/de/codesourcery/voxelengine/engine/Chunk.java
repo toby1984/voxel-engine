@@ -71,6 +71,17 @@ public class Chunk implements Disposable
      */
     public final BoundingBox boundingBox;
     
+    /*
+     * Chunk neighbours in right-handed coordinate system (looking along the -z axis).
+     * 
+     */
+    public Chunk leftNeighbour;
+    public Chunk rightNeighbour;
+    public Chunk topNeighbour;
+    public Chunk bottomNeighbour;
+    public Chunk frontNeighbour;
+    public Chunk backNeighbour;
+    
     /**
      * Block type of each voxel.
      */

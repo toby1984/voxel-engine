@@ -47,7 +47,7 @@ public class ApplicationMain implements ApplicationListener {
         
         logger = new FPSLogger();
         camera = new PerspectiveCamera();
-        camera.near = 0.1f;
+        camera.near = 0.01f;
         camera.far = WorldRenderer.RENDER_DISTANCE;
         
         spriteBatch = new SpriteBatch();
@@ -55,8 +55,8 @@ public class ApplicationMain implements ApplicationListener {
         
         world = new World( chunkManager , camera );
         
-        world.player.setPosition(0,25,25);
-        world.player.lookAt( 0 , 0 , 0 );
+        world.player.setPosition(-115,13,-13);
+        world.player.lookAt( -115 , 13 , -200 );
         
         shaderManager = new ShaderManager();
         renderer = new WorldRenderer( world , shaderManager );

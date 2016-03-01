@@ -3,7 +3,9 @@ package de.codesourcery.voxelengine.engine;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -31,7 +33,7 @@ public class ChunkManager implements Disposable
 
     public static final int MAX_CACHE_SIZE = 32;
 
-    public static final boolean CLEAR_CHUNK_DIR = false;
+    public static final boolean CLEAR_CHUNK_DIR = true;
 
     private final File chunkDir;
 
@@ -120,7 +122,7 @@ public class ChunkManager implements Disposable
             if ( result == null || result.isDisposed() ) 
             {
                 result = loadOrCreateChunk(key);
-                chunks.put( key , result );
+                addChunks( Arrays.asList((result) ) );
                 result.setIsInUse( true );
                 return result;
             }
@@ -139,17 +141,16 @@ public class ChunkManager implements Disposable
     {
         if ( --cleanCount < 0 ) 
         {
-            int removalCount=0;
-            for (Iterator<Entry<ChunkKey, Chunk>> it = chunks.entrySet().iterator(); it.hasNext();) 
+            final boolean debug = LOG.isDebugEnabled();
+            for ( Chunk chunk : new ArrayList<>( chunks.values() ) )
             {
-                final Entry<ChunkKey, Chunk> entry = it.next();
-                if ( entry.getValue().isDisposed() ) {
-                    it.remove();
-                    removalCount++;
+                if ( chunk.isDisposed() ) 
+                {
+                    if ( debug ) {
+                        LOG.info("removeDisposedChunks(): Removing disposed chunk: "+chunk);
+                    }                    
+                    removeChunk(chunk);
                 }
-            }
-            if ( LOG.isDebugEnabled() ) {
-                LOG.debug("removeDisposedChunks(): Removed "+removalCount+" disposed chunks");
             }
             cleanCount = CLEAN_FREQUENCY;
         }
@@ -198,9 +199,7 @@ public class ChunkManager implements Disposable
             }
             synchronized(loaded) 
             {
-                for ( Chunk chunk : loaded ) {
-                    chunks.put( chunk.chunkKey , chunk );
-                }
+                addChunks(loaded);
             }
             result.addAll( loaded );
         }
@@ -237,6 +236,84 @@ public class ChunkManager implements Disposable
             }
         }
     }
+    
+    private void addChunks(List<Chunk> chunksToAdd) 
+    {
+        for ( int i = 0 , len = chunksToAdd.size() ; i < len ; i++ ) 
+        {
+            final Chunk chunk = chunksToAdd.get(i);
+            final ChunkKey key = chunk.chunkKey;
+            chunks.put( key , chunk );
+
+            // front+back
+            Chunk neighbour = chunks.get( key.backNeighbour() );
+            if ( neighbour != null ) {
+                chunk.backNeighbour = neighbour;
+                neighbour.frontNeighbour = chunk;
+            }
+            neighbour = chunks.get( key.frontNeighbour() );
+            if ( neighbour != null ) {
+                chunk.frontNeighbour = neighbour;
+                neighbour.backNeighbour = chunk;
+            }    
+            // left+right
+            neighbour = chunks.get( key.leftNeighbour() );
+            if ( neighbour != null ) {
+                chunk.leftNeighbour = neighbour;
+                neighbour.rightNeighbour = chunk;
+            }
+            neighbour = chunks.get( key.rightNeighbour() );
+            if ( neighbour != null ) {
+                chunk.rightNeighbour = neighbour;
+                neighbour.leftNeighbour = chunk;
+            }         
+            // top+bottom
+            neighbour = chunks.get( key.topNeighbour() );
+            if ( neighbour != null ) {
+                chunk.topNeighbour = neighbour;
+                neighbour.bottomNeighbour = chunk;
+            }   
+            neighbour = chunks.get( key.bottomNeighbour() );
+            if ( neighbour != null ) {
+                chunk.bottomNeighbour = neighbour;
+                neighbour.topNeighbour = chunk;
+            }      
+        }
+    }
+    
+    private void removeChunk(Chunk current) 
+    {
+        final ChunkKey key = current.chunkKey;
+        chunks.remove( key );
+        
+        // front+back
+        Chunk neighbour = chunks.get( key.backNeighbour() );
+        if ( neighbour != null ) {
+            neighbour.frontNeighbour = null;
+        }
+        neighbour = chunks.get( key.frontNeighbour() );
+        if ( neighbour != null ) {
+            neighbour.backNeighbour = null;
+        }    
+        // left+right
+        neighbour = chunks.get( key.leftNeighbour() );
+        if ( neighbour != null ) {
+            neighbour.rightNeighbour = null;
+        }
+        neighbour = chunks.get( key.rightNeighbour() );
+        if ( neighbour != null ) {
+            neighbour.leftNeighbour = null;
+        }         
+        // top+bottom
+        neighbour = chunks.get( key.topNeighbour() );
+        if ( neighbour != null ) {
+            neighbour.bottomNeighbour = null;
+        }   
+        neighbour = chunks.get( key.bottomNeighbour() );
+        if ( neighbour != null ) {
+            neighbour.topNeighbour = null;
+        }      
+    }    
 
     private Chunk loadOrCreateChunk(ChunkKey key) 
     {
@@ -372,8 +449,8 @@ public class ChunkManager implements Disposable
         {
             final int middle = World.WORLD_CHUNK_SIZE/2;
             //            chunk.setBlockType( middle , middle , middle , BlockType.BLOCKTYPE_SOLID_1 ); 
-            final int yMin = middle-2;
-            final int yMax = middle+2;
+            final int yMin = middle-1;
+            final int yMax = middle+1;
             
             final float rSquared = (World.WORLD_CHUNK_HALF_WIDTH/4)*(World.WORLD_CHUNK_HALF_WIDTH/4);
             float by = centerY - World.WORLD_CHUNK_HALF_WIDTH + World.WORLD_CHUNK_HALF_BLOCK_SIZE;
@@ -389,7 +466,7 @@ public class ChunkManager implements Disposable
 //                        if ( dstSquared < rSquared ) {
 //                            chunk.setBlockType( x , y , z , BlockType.BLOCKTYPE_SOLID_1 );
 //                        }
-                        chunk.setBlockType( x ,y , z , rnd.nextInt( BlockType.MAX_BLOCK_TYPE+1 ) );
+                        chunk.setBlockType( x ,y , z , rnd.nextInt(BlockType.MAX_BLOCK_TYPE+1));
                     }
                 }
             }

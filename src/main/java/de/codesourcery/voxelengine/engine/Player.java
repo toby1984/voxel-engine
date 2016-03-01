@@ -65,6 +65,7 @@ public class Player
             camera.direction.set( direction );
             camera.update(true);
             normalMatrix.set( camera.view ).inv().transpose();
+            cameraNeedsUpdate = false;
         }
     }
     
@@ -103,7 +104,7 @@ public class Player
             block.y -= 1;
         } else {
             block.y = World.WORLD_CHUNK_SIZE-1;
-            feetChunk = world.chunkManager.getChunk( feetChunk.chunkKey.bottomNeighbour() );
+            feetChunk = feetChunk.bottomNeighbour;
         }
         blockType = feetChunk.getBlockType( block.x , block.y , block.z );
         if ( blockType == BlockType.BLOCKTYPE_AIR ) { // oops, need to fall down

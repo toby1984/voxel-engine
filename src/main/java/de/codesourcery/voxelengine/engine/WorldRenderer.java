@@ -15,8 +15,7 @@ import org.apache.log4j.Logger;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Frustum;
-import com.badlogic.gdx.math.Matrix4;
-import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.math.Plane;
 
 import de.codesourcery.voxelengine.shaders.ShaderManager;
 
@@ -30,13 +29,13 @@ public class WorldRenderer
      * How far 
      */
     public static final float RENDER_DISTANCE = World.WORLD_CHUNK_WIDTH*3;
-    public static final float RENDER_DISTANCE_SQUARED = RENDER_DISTANCE*RENDER_DISTANCE;
+    public static final float RENDER_DISTANCE_SQUARED = 3*RENDER_DISTANCE*RENDER_DISTANCE; // dx*dx + dy*dy + dz*dz
     
     public static final boolean RENDER_WIREFRAME =false;
     
     private final World world;
     
-    private final Map<ChunkKey,Chunk> loadedChunks = new HashMap<>();
+    private final Map<ChunkKey,Chunk> loadedChunks = new HashMap<>(400);
     
     private final ShaderProgram shader;
     
@@ -45,9 +44,6 @@ public class WorldRenderer
     
     private final VertexDataBuffer vertexBuffer = new VertexDataBuffer();
     
-    private final Vector3 chunkCenter = new Vector3();
-    private final Set<ChunkKey> visibleChunks = new HashSet<>();
-
     public WorldRenderer(World world,ShaderManager shaderManager) 
     {
         Validate.notNull(world, "world must not be NULL");
@@ -70,80 +66,94 @@ public class WorldRenderer
         
         frameCounter++;
         
-        final boolean doLog = (frameCounter% 300) == 0;
+        final boolean doLog = true; // (frameCounter% 300) == 0;
         
-        final ChunkKey center = world.getChunkCoordinates( world.camera.position );
+        final ChunkKey centerChunk = world.getChunkCoordinates( world.camera.position );
         
-        // determine chunks that are inside the view frustum
-        final int distanceInChunks = (int) Math.ceil(RENDER_DISTANCE/World.WORLD_CHUNK_WIDTH); 
-
+        /* Determine chunks that are inside the view frustum
+         * 
+         * Note that I intentionally add +1 to the distance because building the mesh for
+         * any given chunk also requires looking at the chunk's neighbours and 
+         * if we'd just load all the chunks that are within the rendering distance
+         * the outer chunks wouldn't have their neighbours loaded and thus a NPE would
+         * happen during mesh building.
+         */
+        final int distanceInChunks = 1+(int) Math.ceil(RENDER_DISTANCE/World.WORLD_CHUNK_WIDTH); 
+        final int distanceInChunksSquared = 3*(distanceInChunks)*(distanceInChunks);// dx*dx+dy*dy+dz*dz with dx == dy == dz
+        
+        final Set<ChunkKey> visibleChunks = new HashSet<>(100);
         visibleChunks.clear();
         
         final Frustum f = world.camera.frustum;
+        final List<ChunkKey> toLoad = new ArrayList<>( (2*distanceInChunks+1)*(2*distanceInChunks+1) );
         
-        visibleChunkCount = 0;
-        final List<ChunkKey> toLoad = new ArrayList<>( 50 );
-        for ( int x = center.x - distanceInChunks, xmax = center.x + distanceInChunks  ; x <= xmax ; x++ ) 
+        final int xmin = centerChunk.x - distanceInChunks;
+        final int xmax = centerChunk.x + distanceInChunks;
+        
+        final int ymin = centerChunk.y - distanceInChunks;
+        final int ymax = centerChunk.y + distanceInChunks;
+        
+        final int zmin = centerChunk.z - distanceInChunks;
+        final int zmax = centerChunk.z + distanceInChunks;
+        
+        for ( int x = xmin ; x <= xmax ; x++ ) 
         {
-            chunkCenter.x = x * World.WORLD_CHUNK_WIDTH;
-            for ( int y = center.y - distanceInChunks, ymax = center.y + distanceInChunks  ; y <= ymax ; y++ ) 
+            final float px = x * World.WORLD_CHUNK_WIDTH;
+            final boolean borderX = (x == xmin) || (x == xmax); 
+            for ( int y = ymin ; y <= ymax ; y++ ) 
             {
-                chunkCenter.y = y * World.WORLD_CHUNK_WIDTH;
-                for ( int z = center.z - distanceInChunks, zmax = center.z + distanceInChunks  ; z <= zmax ; z++ ) 
+                final boolean borderY = (y == ymin) || (y == ymax); 
+                final float py = y * World.WORLD_CHUNK_WIDTH;
+                for ( int z = zmin ; z <= zmax ; z++ ) 
                 {
-                    chunkCenter.z = z * World.WORLD_CHUNK_WIDTH;
-                    // TODO: Maybe check against actual bounding box here? Slower but more accurate
-                    if ( f.sphereInFrustum( chunkCenter , World.WORLD_CHUNK_HALF_WIDTH ) ) 
-                    { 
-                        visibleChunkCount++;
-                        final ChunkKey key = new ChunkKey(x,y,z );
-                        visibleChunks.add( key  );
-                        if ( ! loadedChunks.containsKey( key ) ) 
-                        {
-                            toLoad.add( key );
+                    final boolean borderZ = ( z == zmin ) || (z == zmax); 
+                    final ChunkKey key = new ChunkKey( x,y,z );
+                    if ( ! loadedChunks.containsKey( key ) ) 
+                    {
+                        toLoad.add( key );
+                    }                     
+                    if ( ! ( borderX || borderY || borderZ ) ) 
+                    {
+                        final float pz = z * World.WORLD_CHUNK_WIDTH;
+                        if ( intersectsSphere(f,px,py,pz,World.WORLD_CHUNK_HALF_WIDTH) ) 
+//                        if ( f.sphereInFrustum( px,py,pz, World.WORLD_CHUNK_HALF_WIDTH )  ) 
+                        { 
+                            visibleChunks.add( key  );
                         }
                     }
                 }                 
             }            
         }
+        visibleChunkCount = visibleChunks.size();
         
+        // unload chunks that are out-of-range
         final List<Chunk> toUnload = new ArrayList<>( loadedChunks.size() );
         for (Iterator<Entry<ChunkKey, Chunk>> it = loadedChunks.entrySet().iterator(); it.hasNext();) 
         {
             final Chunk chunk = it.next().getValue();
-            if ( ! visibleChunks.contains( chunk.chunkKey ) && chunk.distanceSquared( world.camera.position ) > RENDER_DISTANCE_SQUARED ) 
+            final ChunkKey key = chunk.chunkKey;
+            if ( centerChunk.dst2( key ) > distanceInChunksSquared ) 
             {
                 it.remove();
-                chunk.setIsInUse( false ); // crucial otherwise chunk unloading will fail because of tripped sanity check
+                chunk.setIsInUse( false ); // crucial otherwise chunk unloading will fail because sanity check triggers
                 toUnload.add( chunk );
             }
         }
         
         // bluk-unload chunks
         if ( ! toUnload.isEmpty() ) {
+            System.out.println("*** Unloading: "+toUnload.size()+" chunks");
             world.chunkManager.unloadChunks( toUnload );
         }
         
         // bulk-load missing chunks
         if ( ! toLoad.isEmpty() ) 
         {
-            final List<Chunk> loaded = world.chunkManager.getChunks( toLoad );
-            for ( Chunk chunk : loaded ) 
+            for ( Chunk chunk : world.chunkManager.getChunks( toLoad ) ) 
             {
-                if ( doLog && LOG.isDebugEnabled() ) {
-                    LOG.debug("render(): Fetched chunk "+chunk);
-                }  
                 loadedChunks.put( chunk.chunkKey , chunk );
-                if ( chunk.isNotEmpty() && chunk.needsRebuild() ) 
-                {
-                    buildMesh( chunk );
-                }
             }
         }
-        
-        if ( doLog && LOG.isDebugEnabled() ) {
-            LOG.debug("render(): Chunks loaded: "+loadedChunks.size() );
-        }           
         
         /*
          * Rebuild & render visible chunks.
@@ -162,6 +172,17 @@ public class WorldRenderer
             final Chunk chunk = loadedChunks.get(key);
             if ( chunk.isNotEmpty() ) 
             {
+                if ( chunk.needsRebuild() ) 
+                {
+                    try {
+                        buildMesh( chunk );
+                    } 
+                    catch(RuntimeException e) 
+                    {
+                        System.err.println("Failed to build mesh for "+chunk+" while center chunk is at "+centerChunk);
+                        throw e;
+                    }
+                }                
                 totalTriangles += chunk.mesh.render( shader , camera , doLog );
             }
         }
@@ -169,6 +190,29 @@ public class WorldRenderer
         if ( doLog ) {
             LOG.debug("render(): Total triangles: "+totalTriangles);
         }
+    }
+    
+    private static boolean intersectsSphere(Frustum f,float x,float y,float z,float radius) 
+    {
+        // calculate our distances to each of the planes
+        for(int i = 0; i < 6; ++i) 
+        {
+            // find the distance to this plane
+            final Plane plane = f.planes[i];
+            final float dist = plane.normal.dot( x , y, z ) + plane.d;
+
+            // if this distance is < -sphere.radius, we are outside
+            if (dist < -radius) {
+                return false;
+            }
+
+            // else if the distance is between +- radius, then we intersect
+            if ( Math.abs(dist) < radius) {
+                return true;
+            }
+        }
+        // otherwise fully in view
+        return true;
     }
     
     private void buildMesh(Chunk chunk) 

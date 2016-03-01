@@ -76,24 +76,12 @@ public class VoxelMesh implements Disposable
     {
         switch( side ) 
         {
-            case SIDE_TOP:
-                quad.set( blockIndex, cx , cy + halfBlockSize , cz , side );
-                break;
-            case SIDE_BOTTOM:
-                quad.set( blockIndex, cx , cy - halfBlockSize , cz , side );
-                break;
-            case SIDE_LEFT:
-                quad.set( blockIndex, cx - halfBlockSize , cy , cz , side );
-                break;
-            case SIDE_RIGHT:
-                quad.set( blockIndex, cx + halfBlockSize , cy , cz , side );
-                break;
-            case SIDE_FRONT:
-                quad.set( blockIndex, cx , cy , cz + halfBlockSize , side );
-                break;
-            case SIDE_BACK:
-                quad.set( blockIndex, cx , cy , cz - halfBlockSize , side );
-                break;
+            case SIDE_TOP:    quad.set( blockIndex, cx , cy + halfBlockSize , cz , side ); break;
+            case SIDE_BOTTOM: quad.set( blockIndex, cx , cy - halfBlockSize , cz , side ); break;
+            case SIDE_LEFT:   quad.set( blockIndex, cx - halfBlockSize , cy , cz , side ); break;
+            case SIDE_RIGHT:  quad.set( blockIndex, cx + halfBlockSize , cy , cz , side ); break;
+            case SIDE_FRONT:  quad.set( blockIndex, cx , cy , cz + halfBlockSize , side ); break;
+            case SIDE_BACK:   quad.set( blockIndex, cx , cy , cz - halfBlockSize , side ); break;
             default:
                 throw new IllegalArgumentException("Unknown side: "+side);
         }
@@ -341,7 +329,7 @@ public class VoxelMesh implements Disposable
         if ( blockZ+1 < chunk.chunkSize ) {
             return chunk.isBlockEmpty( blockX , blockY , blockZ+1 ); 
         }
-        return chunkManager.getChunk( chunk.chunkKey.frontNeighbour() ).isBlockEmpty( blockX , blockY , 0 );
+        return chunk.frontNeighbour.isBlockEmpty( blockX , blockY , 0 );
     }
 
     private boolean hasNoBackNeighbour(int blockX,int blockY,int blockZ) 
@@ -349,8 +337,7 @@ public class VoxelMesh implements Disposable
         if ( blockZ-1 >= 0 ) {
             return chunk.isBlockEmpty( blockX , blockY , blockZ-1 ); 
         }
-        final Chunk neighbour = chunkManager.getChunk( chunk.chunkKey.backNeighbour() );
-        return neighbour.isBlockEmpty( blockX , blockY , neighbour.chunkSize-1 );
+        return chunk.backNeighbour.isBlockEmpty( blockX , blockY , chunk.backNeighbour.chunkSize-1 );
     }    
 
     private boolean hasNoLeftNeighbour(int blockX,int blockY,int blockZ) 
@@ -358,8 +345,7 @@ public class VoxelMesh implements Disposable
         if ( blockX-1 >= 0 ) {
             return chunk.isBlockEmpty( blockX-1 , blockY , blockZ ); 
         }
-        final Chunk neighbour = chunkManager.getChunk( chunk.chunkKey.leftNeighbour() );
-        return neighbour.isBlockEmpty( neighbour.chunkSize-1 , blockY , blockZ );
+        return chunk.leftNeighbour.isBlockEmpty( chunk.leftNeighbour.chunkSize-1 , blockY , blockZ );
     }    
 
     private boolean hasNoRightNeighbour(int blockX,int blockY,int blockZ) 
@@ -367,8 +353,7 @@ public class VoxelMesh implements Disposable
         if ( blockX+1 < chunk.chunkSize ) {
             return chunk.isBlockEmpty( blockX+1 , blockY , blockZ ); 
         }
-        final Chunk neighbour = chunkManager.getChunk( chunk.chunkKey.rightNeighbour() );
-        return neighbour.isBlockEmpty( 0 , blockY , blockZ );
+        return chunk.rightNeighbour.isBlockEmpty( 0 , blockY , blockZ );
     }   
 
     private boolean hasNoTopNeighbour(int blockX,int blockY,int blockZ) 
@@ -376,8 +361,7 @@ public class VoxelMesh implements Disposable
         if ( blockY+1 < chunk.chunkSize ) {
             return chunk.isBlockEmpty( blockX , blockY+1 , blockZ ); 
         }
-        final Chunk neighbour = chunkManager.getChunk( chunk.chunkKey.topNeighbour() );
-        return neighbour.isBlockEmpty( blockX , 0 , blockZ );
+        return chunk.topNeighbour.isBlockEmpty( blockX , 0 , blockZ );
     }  
 
     private boolean hasNoBottomNeighbour(int blockX,int blockY,int blockZ) 
@@ -385,8 +369,7 @@ public class VoxelMesh implements Disposable
         if ( blockY-1 >= 0 ) {
             return chunk.isBlockEmpty( blockX , blockY-1 , blockZ ); 
         }
-        final Chunk neighbour = chunkManager.getChunk( chunk.chunkKey.bottomNeighbour() );
-        return neighbour.isBlockEmpty( blockX , neighbour.chunkSize-1 , blockZ );
+        return chunk.bottomNeighbour.isBlockEmpty( blockX , chunk.bottomNeighbour.chunkSize-1 , blockZ );
     }     
 
     public int render(ShaderProgram shader,Camera camera,boolean debug) 
