@@ -42,8 +42,6 @@ public class VoxelMesh implements Disposable
     private static final Vector3 NORMAL_TOP     = new Vector3( 0, 1, 0);
     private static final Vector3 NORMAL_BOTTOM  = new Vector3( 0,-1, 0);
 
-    private final ChunkManager chunkManager; 
-
     private Chunk chunk;
     private int vertexCount;
     private VertexBufferObjectWithVAO vbo;
@@ -66,10 +64,6 @@ public class VoxelMesh implements Disposable
             this.blockIndex = blockIndex;
             this.side = side;
         }        
-    }
-
-    public VoxelMesh(ChunkManager chunkManager) {
-        this.chunkManager = chunkManager;
     }
 
     private void addQuad(int blockIndex,float cx , float cy , float cz,int side, float halfBlockSize) 
@@ -372,11 +366,11 @@ public class VoxelMesh implements Disposable
         return chunk.bottomNeighbour.isBlockEmpty( blockX , chunk.bottomNeighbour.chunkSize-1 , blockZ );
     }     
 
-    public int render(ShaderProgram shader,Camera camera,boolean debug) 
+    public int render(ShaderProgram shader,Camera camera,boolean trace) 
     {
         final int vertexCount = buffer.vertexPtr / VERTEX_FLOAT_SIZE;
-        if ( debug ) {
-            LOG.debug("render(): Rendering mesh with "+(vertexCount/3)+" triangles ("+vertexCount+" vertices)");
+        if ( trace ) {
+            LOG.trace("render(): Rendering mesh with "+(vertexCount/3)+" triangles ("+vertexCount+" vertices)");
         }
 
         vbo.bind( shader );

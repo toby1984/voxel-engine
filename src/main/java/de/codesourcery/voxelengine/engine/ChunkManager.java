@@ -5,27 +5,21 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.Validate;
 import org.apache.log4j.Logger;
 
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.LongMap;
+import com.badlogic.gdx.utils.LongMap.Values;
+
+import de.codesourcery.voxelengine.engine.TaskScheduler.Task;
 
 public class ChunkManager implements Disposable
 {
@@ -37,18 +31,19 @@ public class ChunkManager implements Disposable
 
     private final File chunkDir;
 
-    private final ThreadPoolExecutor chunkLoaderPool;
-    private final ThreadPoolExecutor chunkUnloaderPool;
-
-    private final Map<ChunkKey,Chunk> chunks = new HashMap<>();
+    private final LongMap<Chunk> chunks = new LongMap<>(1000);
     
     private static final int CLEAN_FREQUENCY = 60;
     
     private int cleanCount = CLEAN_FREQUENCY;
 
-    public ChunkManager(File chunkDir) 
+    private final TaskScheduler scheduler;
+    
+    public ChunkManager(File chunkDir,TaskScheduler scheduler) 
     {
         Validate.notNull(chunkDir, "chunkDir must not be NULL");
+        Validate.notNull(scheduler, "scheduler must not be NULL");
+        this.scheduler = scheduler;
         this.chunkDir = chunkDir;
 
         if ( CLEAR_CHUNK_DIR ) {
@@ -63,37 +58,6 @@ public class ChunkManager implements Disposable
                 throw new RuntimeException("Failed to create chunk dir "+chunkDir.getAbsolutePath());
             }
         }
-
-        final ThreadFactory threadFactory1 = new ThreadFactory() 
-        {
-            private final AtomicInteger ID = new AtomicInteger(0);
-
-            @Override
-            public Thread newThread(Runnable r) 
-            {
-                final Thread t = new Thread(r);
-                t.setDaemon( true );
-                t.setName( "chunkloader-"+ID.incrementAndGet());
-                return t;
-            }
-        };
-
-        final ThreadFactory threadFactory2 = new ThreadFactory() 
-        {
-            private final AtomicInteger ID = new AtomicInteger(0);
-
-            @Override
-            public Thread newThread(Runnable r) 
-            {
-                final Thread t = new Thread(r);
-                t.setDaemon( true );
-                t.setName( "chunkunloader-"+ID.incrementAndGet());
-                return t;
-            }
-        };
-
-        chunkLoaderPool = new ThreadPoolExecutor( 2 , 2 , 10 , TimeUnit.MINUTES , new ArrayBlockingQueue<Runnable>(100) , threadFactory1 , new ThreadPoolExecutor.CallerRunsPolicy() );
-        chunkUnloaderPool = new ThreadPoolExecutor( 2 , 2 , 10 , TimeUnit.MINUTES , new ArrayBlockingQueue<Runnable>(100) , threadFactory2 , new ThreadPoolExecutor.CallerRunsPolicy() );
     }
 
     public static void recursiveDelete(File file) 
@@ -116,12 +80,17 @@ public class ChunkManager implements Disposable
     public Chunk getChunk(ChunkKey key) 
     {
         Validate.notNull(key, "key must not be NULL");
+        return getChunk( key.toID() );
+    }
+    
+    public Chunk getChunk(long chunkID) 
+    {
         while( true ) 
         {
-            Chunk result = chunks.get( key );
+            Chunk result = chunks.get( chunkID );
             if ( result == null || result.isDisposed() ) 
             {
-                result = loadOrCreateChunk(key);
+                result = loadOrCreateChunk( ChunkKey.fromID( chunkID ) );
                 addChunks( Arrays.asList((result) ) );
                 result.setIsInUse( true );
                 return result;
@@ -142,8 +111,10 @@ public class ChunkManager implements Disposable
         if ( --cleanCount < 0 ) 
         {
             final boolean debug = LOG.isDebugEnabled();
-            for ( Chunk chunk : new ArrayList<>( chunks.values() ) )
+            final Values<Chunk> values = chunks.values();
+            while( values.hasNext )
             {
+                final Chunk chunk = values.next();
                 if ( chunk.isDisposed() ) 
                 {
                     if ( debug ) {
@@ -156,11 +127,11 @@ public class ChunkManager implements Disposable
         }
     }
 
-    public List<Chunk> getChunks(Collection<ChunkKey> toLoad) 
+    public List<Chunk> getChunks(Collection<Long> toLoad) 
     {
-        final Set<ChunkKey> missingChunks = new HashSet<>();
+        final Set<Long> missingChunks = new HashSet<>();
         final List<Chunk> result = new ArrayList<>();
-        for (ChunkKey key : toLoad ) 
+        for (Long key : toLoad ) 
         {
             while( true )
             {
@@ -185,8 +156,8 @@ public class ChunkManager implements Disposable
         {
             final List<Chunk> loaded = new ArrayList<>();
             final CountDownLatch latch = new CountDownLatch( missingChunks.size() );
-            for ( final ChunkKey key : missingChunks ) {
-                chunkLoaderPool.submit( new ChunkLoader( key , loaded, latch ) ); 
+            for ( final Long key : missingChunks ) {
+                scheduler.add( new ChunkLoader( ChunkKey.fromID( key ) , loaded, latch ) ); 
             }
             while( true ) 
             {
@@ -207,20 +178,22 @@ public class ChunkManager implements Disposable
         return result;
     }
 
-    protected final class ChunkLoader implements Runnable 
+    protected final class ChunkLoader extends TaskScheduler.Task
     {
         private final ChunkKey toLoad;
         private final List<Chunk> chunkList;
         private final CountDownLatch latch;
 
-        public ChunkLoader(ChunkKey toLoad,List<Chunk> chunkList,CountDownLatch latch) {
+        public ChunkLoader(ChunkKey toLoad,List<Chunk> chunkList,CountDownLatch latch) 
+        {
+            super(TaskScheduler.Prio.HI);
             this.toLoad = toLoad;
             this.chunkList = chunkList;
             this.latch = latch;
         }
 
         @Override
-        public void run() 
+        public boolean perform() 
         {
             try 
             {
@@ -234,6 +207,7 @@ public class ChunkManager implements Disposable
             {
                 latch.countDown();
             }
+            return true;
         }
     }
     
@@ -243,7 +217,7 @@ public class ChunkManager implements Disposable
         {
             final Chunk chunk = chunksToAdd.get(i);
             final ChunkKey key = chunk.chunkKey;
-            chunks.put( key , chunk );
+            chunks.put( key.toID() , chunk );
 
             // front+back
             Chunk neighbour = chunks.get( key.backNeighbour() );
@@ -284,7 +258,7 @@ public class ChunkManager implements Disposable
     private void removeChunk(Chunk current) 
     {
         final ChunkKey key = current.chunkKey;
-        chunks.remove( key );
+        chunks.remove( current.chunkKey.toID() );
         
         // front+back
         Chunk neighbour = chunks.get( key.backNeighbour() );
@@ -337,21 +311,23 @@ public class ChunkManager implements Disposable
                 if ( debugEnabled ) {
                     LOG.debug("unloadChunks(): Marked for unload: "+chunk);
                 }
-                chunkUnloaderPool.submit( new ChunkUnloader( chunk ) );
+                scheduler.add( new ChunkUnloader( chunk ) );
             }
         }
     }
 
-    protected final class ChunkUnloader implements Runnable 
+    protected final class ChunkUnloader extends TaskScheduler.Task
     {
         private final Chunk chunk;
 
-        public ChunkUnloader(Chunk chunk) {
+        public ChunkUnloader(Chunk chunk) 
+        {
+            super(TaskScheduler.Prio.LO);
             this.chunk = chunk;
         }
 
         @Override
-        public void run() 
+        public boolean perform() 
         {
             try 
             {
@@ -366,12 +342,34 @@ public class ChunkManager implements Disposable
             } 
             finally 
             {
-                try {
-                    chunk.dispose();
-                } finally {
-                    chunk.markDisposed();
+                if ( chunk.needsDisposeOnRenderingThread() ) 
+                {
+                    scheduler.add( new Task(TaskScheduler.Prio.RENDER) 
+                    {
+                        @Override
+                        public boolean perform() 
+                        {
+                            try 
+                            {
+                                chunk.dispose();
+                            } finally {
+                                chunk.markDisposed();
+                            }
+                            return true;
+                        }
+                    });
+                } 
+                else 
+                {
+                    try 
+                    {
+                        chunk.dispose();
+                    } finally {
+                        chunk.markDisposed();
+                    }
                 }
             }
+            return true;
         }
     }
 
@@ -426,7 +424,7 @@ public class ChunkManager implements Disposable
     }
 
     public int getLoadedChunkCount() {
-        return chunks.size();
+        return chunks.size;
     }
 
     static Chunk generateChunk(ChunkKey key) {
@@ -484,30 +482,18 @@ public class ChunkManager implements Disposable
     @Override
     public void dispose() 
     {
-        chunks.values().stream().filter( c -> ! c.isMarkedForUnloading() ).forEach( c -> c.setIsInUse( false ) );
-        
-        unloadChunks( chunks.values() );
-        
-        int disposedCount = 0;
-        do {
-            disposedCount = 0;
-            for ( Chunk chunk : chunks.values() ) 
+        for ( Chunk chunk : chunks.values() ) 
+        {
+            if ( chunk.needsSave() ) 
             {
-                if ( chunk.isDisposed() ) {
-                    disposedCount++;
+                try {
+                    saveChunk( chunk );
+                } catch(Exception e) {
+                    LOG.error("dispose(): Failed to save chunk "+chunk,e);
+                } finally {
+                    chunk.dispose();
                 }
             }
-        } while ( disposedCount != chunks.size() );
-        
-        chunkLoaderPool.shutdownNow();
-        chunkUnloaderPool.shutdownNow();
-        while ( true ) 
-        {
-            try 
-            {
-                chunkLoaderPool.awaitTermination(10, TimeUnit.HOURS);
-                break;
-            } catch (InterruptedException e) { /* ok... */ }
         }
     }
 }

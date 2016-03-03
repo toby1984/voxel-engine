@@ -37,16 +37,15 @@ public class Player
     
     private final World world;
     
-    private boolean cameraNeedsUpdate = true;
+    public boolean cameraTranslated = true; // set to true to force initialization
+    public boolean cameraRotated = true; // set to true to force initialization
     
     private final Matrix3 normalMatrix = new Matrix3();
     
+    public long cameraChunkID;
+    
     public Player(World world) {
         this.world = world;
-    }
-    
-    public ChunkKey getCurrentChunk() {
-        return world.getChunkCoordinates( feetPosition );
     }
     
     public void update(float delta) 
@@ -58,14 +57,18 @@ public class Player
         // update camera
         updateHeadPosition();
         
-        if ( cameraNeedsUpdate ) 
+        if ( cameraRotated || cameraTranslated ) 
         {
             final PerspectiveCamera camera = world.camera;
             world.camera.position.set( headPosition );            
             camera.direction.set( direction );
             camera.update(true);
             normalMatrix.set( camera.view ).inv().transpose();
-            cameraNeedsUpdate = false;
+            
+            if ( cameraTranslated ) {
+                cameraChunkID = world.getChunkID( world.camera.position );
+                cameraTranslated = false;
+            }
         }
     }
     
@@ -79,7 +82,7 @@ public class Player
         int blockType = headChunk.getBlockType( headChunk.blockIndex( headPosition ) );
         if ( blockType != BlockType.BLOCKTYPE_AIR ) { // head is blocked, move up
             feetPosition.y += delta * 5f;
-            cameraNeedsUpdate=true;
+            cameraTranslated=true;
             return;
         } 
         
@@ -95,7 +98,7 @@ public class Player
             } else {
                 feetPosition.y = blockTopY;
             }
-            cameraNeedsUpdate=true;
+            cameraTranslated=true;
             return;
         } 
         
@@ -109,7 +112,7 @@ public class Player
         blockType = feetChunk.getBlockType( block.x , block.y , block.z );
         if ( blockType == BlockType.BLOCKTYPE_AIR ) { // oops, need to fall down
             feetPosition.y -= delta * COLLISION_Y_ADJUST;
-            cameraNeedsUpdate=true;
+            cameraTranslated=true;
             if ( feetPosition.y < 0 ) {
                 feetPosition.y = 0;
             }
@@ -121,19 +124,9 @@ public class Player
             final float blockTopY = feetChunk.center.y - World.WORLD_CHUNK_HALF_WIDTH + block.y * World.WORLD_CHUNK_BLOCK_SIZE;
             if ( feetPosition.y != blockTopY ) {
                 feetPosition.y = blockTopY;
-                cameraNeedsUpdate=true;
+                cameraTranslated=true;
             }
         }
-    }
-    
-    public void setPosition(float x, float y, float z) {
-        this.feetPosition.set(x,y,z);
-        updateHeadPosition();
-        cameraNeedsUpdate = true;
-    }      
-    
-    public void setPosition(Vector3 pos) {
-        setPosition(pos.x,pos.y,pos.z);
     }
     
     public Vector3 headPosition() {
@@ -149,31 +142,43 @@ public class Player
         headPosition.set( feetPosition.x , feetPosition.y + PLAYER_HEIGHT , feetPosition.z );
     }
     
+    public void setPosition(Vector3 pos) {
+        setPosition(pos.x,pos.y,pos.z);
+    }    
+    
+    public void setPosition(float x, float y, float z) {
+        this.feetPosition.set(x,y,z);
+        updateHeadPosition();
+        cameraTranslated = true;
+    }     
+    
     public void rotate(Vector3 axis,float angle) 
     {
         direction.rotate( axis , angle );
         direction.nor();
         up.rotate( axis , angle );
+        cameraRotated=true;
     }
     
     public void rotateLook(Vector3 axis, float angle) 
     {
         direction.rotate(axis , angle );
         direction.nor();
+        cameraRotated=true;
     }
     
     public void translate(Vector3 v)
     {
         feetPosition.add( v );
         updateHeadPosition();
-        cameraNeedsUpdate=true;
+        cameraTranslated=true;
     }
     
     public void translate(float dx,float dy,float dz)
     {
         feetPosition.add( dx,dy,dz );
         updateHeadPosition();
-        cameraNeedsUpdate=true;
+        cameraTranslated = true;
     }
     
     public void lookAt (float x, float y, float z) 
@@ -191,7 +196,7 @@ public class Player
             direction.set(tmpVec);
             normalizeUp();
         }
-        cameraNeedsUpdate = true;
+        cameraRotated = true;
     }
 
     public void lookAt (Vector3 target) {

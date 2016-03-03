@@ -48,8 +48,12 @@ public class Chunk implements Disposable
     public final ChunkKey chunkKey;
     
     private boolean markedForUnload;
+    
     private final AtomicBoolean isDisposed = new AtomicBoolean(false);
+    
     private boolean isInUse = false;
+    
+    public boolean isVisible = false;
     
     /**
      * Bitmask holding chunk flags.
@@ -385,6 +389,10 @@ public class Chunk implements Disposable
     public boolean isBlockNotEmpty(int bx,int by,int bz) {
         return getBlockType( bx , by , bz ) != BlockType.BLOCKTYPE_AIR;
     }    
+    
+    public boolean needsDisposeOnRenderingThread() {
+        return mesh != null; // mesh allocates VBOs and thus needs to be discarded on OpenGL thread
+    }
 
     @Override
     public void dispose() 

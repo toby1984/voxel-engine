@@ -1,10 +1,13 @@
 package de.codesourcery.voxelengine.engine;
 
-public final class ChunkKey {
-
-    public final int x;
-    public final int y;
-    public final int z;
+public final class ChunkKey 
+{
+    private static final long MASK        =               0b1_1111_1111_1111_1111_1111;
+    private static final int NEGATIVE_BITS = 0b1111_1111_1110_0000_0000_0000_0000_0000;
+    
+    public int x;
+    public int y;
+    public int z;
     
     public ChunkKey(int x, int y, int z) 
     {
@@ -12,6 +15,52 @@ public final class ChunkKey {
         this.y = y;
         this.z = z;
     }
+    
+    public long toID() {
+        return toID(x,y,z);
+    }
+    
+    public static long toID(int x,int y,int z) 
+    {
+        // pack coordinates into long value in Z|Y|X order
+        return (z & MASK ) << 42 | ( y & MASK ) << 21 | ( x & MASK ); 
+    }
+    
+    public static ChunkKey fromID(long value) {
+        return new ChunkKey( getX(value), getY(value),getZ(value) );
+    }
+    
+    public static void fromID(long value,ChunkKey toPopulate) 
+    {
+        toPopulate.x = getX(value);
+        toPopulate.y = getY(value);
+        toPopulate.z = getZ(value);
+    }    
+    
+    public static int getX(long chunkID) 
+    {
+        final int value = (int) (chunkID & MASK);
+        if ( (value & 1<<20) != 0 ) { // negative, perform sign extension
+            return value | NEGATIVE_BITS;
+        }
+        return value;
+    }
+    
+    public static int getY(long chunkID) {
+        final int value = (int) ((chunkID >> 21) & MASK);
+        if ( (value & 1<<20) != 0 ) { // negative, perform sign extension
+            return value | NEGATIVE_BITS;
+        }
+        return value;
+    }
+    
+    public static int getZ(long chunkID) {
+        final int value = (int) ((chunkID >> 42) & MASK);
+        if ( (value & 1<<20) != 0 ) { // negative, perform sign extension
+            return value | NEGATIVE_BITS;
+        }
+        return value;        
+    }    
     
     @Override
     public String toString() {
@@ -63,35 +112,40 @@ public final class ChunkKey {
         return false;
     }    
     
-    @Override
-    public int hashCode() 
+    public static int hashCode(int x,int y,int z) 
     {
         int result = 31 + x;
         result = 31 * result + y;
         return 31 * result + z;
     }
-
-    public ChunkKey frontNeighbour() {
-        return new ChunkKey( x , y , z+1 );
+    
+    @Override
+    public int hashCode() 
+    {
+        return hashCode(x,y,z);
     }
 
-    public ChunkKey backNeighbour() {
-        return new ChunkKey( x , y , z-1 );
+    public long frontNeighbour() {
+        return ChunkKey.toID( x , y , z+1 );
+    }
+
+    public long backNeighbour() {
+        return ChunkKey.toID( x , y , z-1 );
     }    
     
-    public ChunkKey leftNeighbour() {
-        return new ChunkKey( x-1 , y , z );
+    public long leftNeighbour() {
+        return ChunkKey.toID( x-1 , y , z );
     }    
     
-    public ChunkKey rightNeighbour() {
-        return new ChunkKey( x+1 , y , z );
+    public long rightNeighbour() {
+        return ChunkKey.toID( x+1 , y , z );
     }    
     
-    public ChunkKey topNeighbour() {
-        return new ChunkKey( x , y+1 , z );
+    public long topNeighbour() {
+        return ChunkKey.toID( x , y+1 , z );
     }    
     
-    public ChunkKey bottomNeighbour() {
-        return new ChunkKey( x , y-1 , z );
+    public long bottomNeighbour() {
+        return ChunkKey.toID( x , y-1 , z );
     }     
 }

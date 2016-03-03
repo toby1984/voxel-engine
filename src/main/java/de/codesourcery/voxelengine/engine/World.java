@@ -44,7 +44,7 @@ public class World
      */
     public Chunk getWorldChunk(Vector3 v) 
     {
-        return chunkManager.getChunk( getChunkCoordinates(v) );
+        return chunkManager.getChunk( getChunkID(v) );
     }
 
     /**
@@ -53,11 +53,11 @@ public class World
      * @param v
      * @return
      */
-    public ChunkKey getChunkCoordinates(Vector3 v) 
+    public long getChunkID(Vector3 v) 
     {
         final int chunkX = (int) Math.floor( (v.x + WORLD_CHUNK_HALF_WIDTH) / WORLD_CHUNK_WIDTH);
         final int chunkY = (int) Math.floor( (v.y + WORLD_CHUNK_HALF_WIDTH) / WORLD_CHUNK_WIDTH);
         final int chunkZ = (int) Math.floor( (v.z + WORLD_CHUNK_HALF_WIDTH) / WORLD_CHUNK_WIDTH);
-        return new ChunkKey( chunkX , chunkY , chunkZ );
+        return ChunkKey.toID( chunkX , chunkY , chunkZ );
     }    
 }

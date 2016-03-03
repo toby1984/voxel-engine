@@ -13,8 +13,10 @@ import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
+import de.codesourcery.voxelengine.engine.ChunkKey;
 import de.codesourcery.voxelengine.engine.ChunkManager;
 import de.codesourcery.voxelengine.engine.PlayerController;
+import de.codesourcery.voxelengine.engine.TaskScheduler;
 import de.codesourcery.voxelengine.engine.World;
 import de.codesourcery.voxelengine.engine.WorldRenderer;
 import de.codesourcery.voxelengine.shaders.ShaderManager;
@@ -39,6 +41,7 @@ public class ApplicationMain implements ApplicationListener {
     private PlayerController playerController;
     private SpriteBatch spriteBatch;
     private BitmapFont font;    
+    private final TaskScheduler taskScheduler = new TaskScheduler();
     
     @Override
     public void create() 
@@ -48,10 +51,10 @@ public class ApplicationMain implements ApplicationListener {
         logger = new FPSLogger();
         camera = new PerspectiveCamera();
         camera.near = 0.01f;
-        camera.far = WorldRenderer.RENDER_DISTANCE;
+        camera.far = WorldRenderer.RENDER_DISTANCE_CHUNKS*World.WORLD_CHUNK_WIDTH;
         
         spriteBatch = new SpriteBatch();
-        chunkManager = new ChunkManager( CHUNK_DIR );
+        chunkManager = new ChunkManager( CHUNK_DIR , taskScheduler );
         
         world = new World( chunkManager , camera );
         
@@ -68,9 +71,12 @@ public class ApplicationMain implements ApplicationListener {
     @Override
     public void dispose() 
     {
+        chunkManager.dispose();
+        // dispose task scheduler AFTER chunk manager since it will use the
+        // thread scheduler to save dirty chunks prior to exiting the application
+        taskScheduler.dispose();
         spriteBatch.dispose();
         font.dispose();
-        chunkManager.dispose();
         shaderManager.dispose();
     }
 
@@ -123,7 +129,10 @@ public class ApplicationMain implements ApplicationListener {
         font.draw(spriteBatch, "FPS: "+Gdx.graphics.getFramesPerSecond(), 10 , y );
         
         y -= fontHeight;
-        font.draw(spriteBatch, "Current chunk: "+world.player.getCurrentChunk(), 10, y );
+        final int chunkX = ChunkKey.getX( world.player.cameraChunkID );
+        final int chunkY = ChunkKey.getY( world.player.cameraChunkID );
+        final int chunkZ = ChunkKey.getZ( world.player.cameraChunkID );
+        font.draw(spriteBatch, "Current chunk: ("+chunkX+","+chunkY+","+","+chunkZ+")" , 10 , y );
         
         y -= fontHeight;
         font.draw(spriteBatch, "Camera pos: "+camera.position, 10, y );
