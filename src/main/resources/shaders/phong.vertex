@@ -1,0 +1,35 @@
+#version 330
+#line 1
+
+// per-vertex attributes
+in vec4 v_position;
+in vec4 v_color;
+in vec3 v_normal;
+      
+// uniforms
+uniform mat4 u_modelView;
+uniform mat4 u_modelViewProjection;
+uniform mat3 u_normalMatrix;
+
+// shader output
+smooth out vec3 rotatedSurfaceNormal;
+smooth out vec3 v_lightDir;
+smooth out vec4 colorOut;
+
+void main()                   
+{   
+   // apply camera rotation to vertex normal
+   rotatedSurfaceNormal = u_normalMatrix * v_normal;
+   
+   // transform vertex to eye coordinates
+   vec4 eyeVertex = u_modelView * v_position;
+   vec3 eyeVertexNormalized = eyeVertex.xyz / eyeVertex.w;     
+   // vec3 lightPos = u_normalMatrix * vec3(0,200,0);
+   vec4 lightPos = u_modelView  * vec4(0,200,0,0);   
+      
+   // normal vector to light source
+   v_lightDir = normalize(lightPos.xyz - eyeVertex.xyz);
+   
+   gl_Position =  u_modelViewProjection * v_position;
+   colorOut = v_color;
+}

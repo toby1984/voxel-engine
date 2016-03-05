@@ -542,7 +542,7 @@ public class ChunkManager implements Disposable
         ChunkKey.getChunkCenter( key , helper.point );
         helper.point.sub( World.CHUNK_HALF_WIDTH,World.CHUNK_HALF_WIDTH,World.CHUNK_HALF_WIDTH);
         final float tileSize = 0.7f;
-        final int octaveCount = 5;
+        final int octaveCount = 2;
         final float persistance = 32f;
         helper.noise.createNoise3D( helper.point.x*tileSize  , helper.point.y*tileSize, helper.point.z*tileSize , World.CHUNK_SIZE,tileSize,octaveCount,persistance, helper.data );
         
@@ -554,8 +554,13 @@ public class ChunkManager implements Disposable
             {
                 for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
                 {
-                    final float value = helper.data[ x + y * World.CHUNK_SIZE + z*World.CHUNK_SIZE*World.CHUNK_SIZE];
-                    if ( value > 0.3f ) 
+                    final float value;
+                    if ( key.y == 0 ) {
+                        value = helper.data[ x + y * World.CHUNK_SIZE + z*World.CHUNK_SIZE*World.CHUNK_SIZE] / (y*0.20f+0.1f);
+                    } else {
+                        value = helper.data[ x + y * World.CHUNK_SIZE + z*World.CHUNK_SIZE*World.CHUNK_SIZE] *1.5f;
+                    }
+                    if ( value > 0.4f ) 
                     {
                         chunk.setBlockType(x,y,z,BlockType.BLOCKTYPE_SOLID_1);
                     } 

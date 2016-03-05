@@ -33,7 +33,7 @@ public class ChunkRenderer implements Disposable
     private static final int SIDE_BOTTOM = 5;
 
     // TODO: Test code with fixed colors, remove when done
-    private static final float[] COLOR_SOLID_1 = new float[] { 1 , 0 , 0 , 1 }; // r,g,b,a
+    private static final float[] COLOR_SOLID_1 = new float[] { 0.9f , 0.9f , 0.9f , 1 }; // r,g,b,a
     private static final float[] COLOR_SOLID_2 = new float[] { 0 , 1 , 0 , 1 }; // r,g,b,a
 
     private static final VertexAttribute ATTR_POSITION = new VertexAttribute( Usage.Position , 3 , "v_position" ); 
