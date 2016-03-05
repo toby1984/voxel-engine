@@ -20,6 +20,7 @@ public class ShaderManager implements Disposable
     public static final String FLAT_SHADER = "flatsolid"; // flatsolid
     public static final String WIREFRAME_SHADER = "wireframe";
     public static final String SELECTED_BLOCK_SHADER = "selectedblock";
+    public static final String SKYBOX_SHADER = "skybox";
     
     private final Map<String,ShaderProgram> shaders = new HashMap<>();
 

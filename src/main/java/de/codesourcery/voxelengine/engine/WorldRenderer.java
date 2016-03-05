@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Frustum;
 import com.badlogic.gdx.math.Plane;
+import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.LongMap;
 import com.badlogic.gdx.utils.LongMap.Entries;
 import com.badlogic.gdx.utils.LongMap.Keys;
@@ -26,7 +27,7 @@ import de.codesourcery.voxelengine.model.World;
  *
  * @author tobias.gierke@code-sourcery.de
  */
-public class WorldRenderer
+public class WorldRenderer implements Disposable
 {
     private static final Logger LOG = Logger.getLogger(WorldRenderer.class);
 
@@ -62,6 +63,8 @@ public class WorldRenderer
 
     // float[] array to use when meshing a chunk
     private final VertexDataBuffer vertexBuffer = new VertexDataBuffer();
+    
+    private final SkyBox skyBox;
 
     public WorldRenderer(World world,ShaderManager shaderManager) 
     {
@@ -70,6 +73,7 @@ public class WorldRenderer
         this.world = world;
         this.player = world.player;
         this.chunkShader = shaderManager.getShader( RENDER_WIREFRAME ? ShaderManager.WIREFRAME_SHADER : ShaderManager.FLAT_SHADER );
+        this.skyBox = new SkyBox( shaderManager );
     }
 
     /**
@@ -224,6 +228,9 @@ public class WorldRenderer
 
         visibleChunkCount = visibleChunks.size;
         
+        // render skybox 
+        skyBox.render( world.camera );
+        
          // Render
         if ( CULL_FACES ) {
             Gdx.gl30.glEnable( GL20.GL_CULL_FACE );
@@ -298,5 +305,10 @@ public class WorldRenderer
         }
         LOG.debug("buildMesh(): Building mesh for "+chunk);
         chunk.renderer.buildMesh( chunk , vertexBuffer );
+    }
+    
+    @Override
+    public void dispose() {
+        skyBox.dispose();
     }
 }

@@ -13,6 +13,7 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.commons.lang3.Validate;
 import org.apache.log4j.Logger;
 
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.LongMap;
 import com.badlogic.gdx.utils.LongMap.Values;
@@ -39,9 +40,7 @@ public class ChunkManager implements Disposable
 {
     private static final Logger LOG = Logger.getLogger(ChunkManager.class);
 
-    public static final int MAX_CACHE_SIZE = 32;
-
-    public static final boolean CLEAR_CHUNK_DIR_ON_STARTUP = false;
+    public static final boolean CLEAR_CHUNK_DIR_ON_STARTUP = true;
 
     private final File chunkDir;
 
@@ -464,16 +463,41 @@ public class ChunkManager implements Disposable
     public int getLoadedChunkCount() {
         return chunks.size;
     }
+    
+    static Chunk generateChunk(ChunkKey key) 
+    {
+        if ( key.y <= 0 ) 
+        {
+            if ( key.y <= -2 ) {
+                return generateSolidChunk(key);
+            }
+            return generateChunkFromNoise(key);
+        }
+        return generateEmptyChunk(key);
+    }
 
-    static Chunk generateChunk(ChunkKey key) {
+    private static Chunk generateEmptyChunk(ChunkKey key) {
+        final Chunk chunk = new Chunk(key);
+        chunk.setNeedsSave( true );
+        chunk.setFlags(Chunk.FLAG_EMPTY);
+        return chunk;
+    }
+    
+    private static Chunk generateSolidChunk(ChunkKey key) 
+    {
+        final Chunk chunk = new Chunk(key);
+        chunk.setNeedsSave( true );
+        for ( int i = 0 ; i < World.CHUNK_SIZE*World.CHUNK_SIZE*World.CHUNK_SIZE ; i++) {
+            chunk.blockTypes[i] = BlockType.BLOCKTYPE_SOLID_1;
+        }
+        chunk.updateIsEmptyFlag();
+        return chunk;
+    }    
+
+    static Chunk generateSimpleChunk(ChunkKey key) {
 
         final Chunk chunk = new Chunk(key);
         chunk.setNeedsSave( true );
-
-//        long hash = 31+key.x*31;
-//        hash = hash*31 + key.y*31;
-//        hash = hash*31 + key.z*31;
-//        final Random rnd = new Random( hash );
 
         if ( key.y == 0 ) // create ground plane 
         {
@@ -494,7 +518,54 @@ public class ChunkManager implements Disposable
         }
         return chunk;
     }
+    
+    private static class NoiseHelper {
+        
+        public final Vector3 point=new Vector3();
+        public final float[] data = new float[ World.CHUNK_SIZE*World.CHUNK_SIZE*World.CHUNK_SIZE];
+        public final SimplexNoise noise = new SimplexNoise();
+    }
+    
+    private static final ThreadLocal<NoiseHelper> noise = new ThreadLocal<NoiseHelper>() 
+    {
+        protected NoiseHelper initialValue() 
+        {
+            return new NoiseHelper();
+        }
+    };
 
+    static Chunk generateChunkFromNoise(ChunkKey key) 
+    {
+        final NoiseHelper helper = noise.get();
+        helper.noise.setSeed( key.toID()  );
+        
+        ChunkKey.getChunkCenter( key , helper.point );
+        helper.point.sub( World.CHUNK_HALF_WIDTH,World.CHUNK_HALF_WIDTH,World.CHUNK_HALF_WIDTH);
+        final float tileSize = 0.7f;
+        final int octaveCount = 5;
+        final float persistance = 32f;
+        helper.noise.createNoise3D( helper.point.x*tileSize  , helper.point.y*tileSize, helper.point.z*tileSize , World.CHUNK_SIZE,tileSize,octaveCount,persistance, helper.data );
+        
+        final Chunk chunk = new Chunk(key);
+        chunk.setNeedsSave( true );
+        for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
+        {
+            for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) 
+            {
+                for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
+                {
+                    final float value = helper.data[ x + y * World.CHUNK_SIZE + z*World.CHUNK_SIZE*World.CHUNK_SIZE];
+                    if ( value > 0.3f ) 
+                    {
+                        chunk.setBlockType(x,y,z,BlockType.BLOCKTYPE_SOLID_1);
+                    } 
+                }
+            }
+        }
+        chunk.updateIsEmptyFlag();
+        return chunk;
+        
+    }
     @Override
     public void dispose() 
     {

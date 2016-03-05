@@ -33,6 +33,8 @@ public class ApplicationMain implements ApplicationListener {
 
     private static final StringBuilder stringBuilder = new StringBuilder();
 
+    public static final boolean RENDER_DEBUG_UI = true;
+    
     private static final BlockKey TMP_SELECTION = new BlockKey();
     private static final Vector3 TMP1 = new Vector3();
 
@@ -97,6 +99,7 @@ public class ApplicationMain implements ApplicationListener {
         font.dispose();
         shaderManager.dispose();
         world.dispose();
+        worldRenderer.dispose();
     }
 
     @Override
@@ -179,7 +182,9 @@ public class ApplicationMain implements ApplicationListener {
         // render selection
         world.selectedBlock.render();
 
-        renderUI();
+        if ( RENDER_DEBUG_UI ) {
+            renderUI();
+        }
 
         // reset flags so we're again able to detect camera movement on the next frame 
         world.player.resetMovementFlags();
