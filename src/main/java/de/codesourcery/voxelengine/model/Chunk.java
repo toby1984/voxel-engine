@@ -49,18 +49,6 @@ public class Chunk implements Disposable
     public static final int FLAG_NEEDS_SAVE = 1<<3;
     
     /**
-     * The width/height/depth of this chunk in blocks.
-     * 
-     * Since chunks have equal dimensions along all axis, we only need to store one value here.
-     */
-    public final int chunkSize;
-    
-    /**
-     * The size of one block in world space.
-     */
-    public final float blocksize;
-
-    /**
      * Chunk key.
      */
     public final ChunkKey chunkKey;
@@ -129,12 +117,6 @@ public class Chunk implements Disposable
             if ( ! Objects.equals( this.chunkKey , o.chunkKey ) ) {
                 return false;
             }
-            if ( this.blocksize != o.blocksize ) {
-                return false;
-            }
-            if ( this.chunkSize != o.chunkSize ) {
-                return false;
-            }
             if ( this.flags != o.flags ) {
                 return false;
             }
@@ -157,9 +139,9 @@ public class Chunk implements Disposable
      * @param chunkSize Chunk size 
      * @param blockSize Size of a single voxel in world space
      */
-    public Chunk(ChunkKey key,int chunkSize,float blockSize) 
+    public Chunk(ChunkKey key) 
     {
-        this(key,chunkSize,blockSize, new int[ chunkSize*chunkSize*chunkSize ] );
+        this(key,new int[ World.CHUNK_SIZE*World.CHUNK_SIZE*World.CHUNK_SIZE ] );
         Arrays.fill( blockTypes , BlockType.BLOCKTYPE_AIR );
         flags |= FLAG_EMPTY;        
     }
@@ -173,27 +155,20 @@ public class Chunk implements Disposable
      * @param blockSize Size of a single voxel in world space
      * @param blockTypes array holding the type of each voxel in this chunk (number of array elements needs to be (chunkSize+2)^3 ) 
      */
-    public Chunk(ChunkKey key,int chunkSize,float blockSize,int[] blockTypes) 
+    public Chunk(ChunkKey key,int[] blockTypes) 
     {
-        if ( Integer.bitCount( chunkSize ) != 1 ) 
-        {
-            throw new IllegalArgumentException("Chunk size needs to be a power of 2, was: "+chunkSize);
-        }
-        if ( blockSize <= 0 ) {
-            throw new IllegalArgumentException("Block size needs to be > 0, was: "+blockSize);
-        }
         if ( center == null ) {
             throw new IllegalArgumentException("Chunk center must not be NULL");
         }
         
         this.chunkKey = key;
         ChunkKey.getChunkCenter( key , this.center );
-        this.chunkSize = chunkSize;
-        this.blocksize = blockSize;
         this.blockTypes = blockTypes;
         
-        final float halfSize = (chunkSize*blockSize)/2f;
-        this.boundingBox = new BoundingBox( center.cpy().sub( halfSize , halfSize , halfSize ) , center.cpy().add( halfSize , halfSize , halfSize ) ); 
+        this.boundingBox = new BoundingBox( 
+                center.cpy().sub( World.CHUNK_HALF_WIDTH , World.CHUNK_HALF_WIDTH , World.CHUNK_HALF_WIDTH ) , 
+                center.cpy().add( World.CHUNK_HALF_WIDTH , World.CHUNK_HALF_WIDTH , World.CHUNK_HALF_WIDTH ) 
+        ); 
         updateIsEmptyFlag();
     }
     
@@ -368,7 +343,7 @@ public class Chunk implements Disposable
      * @return
      */
     public int blockIndex(int x,int y,int z) {
-        return x+y*chunkSize + chunkSize * chunkSize * z;
+        return x+y*World.CHUNK_SIZE + World.CHUNK_SIZE * World.CHUNK_SIZE * z;
     }
     
     public boolean needsSave() 

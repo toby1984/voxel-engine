@@ -45,7 +45,7 @@ public class WorldRenderer
     private final World world;
 
     private ChunkKey centerChunk=null;
-    private long previousChunkID=0xdeadbeef;
+    private long previousChunkID=ChunkKey.INVALID;
 
     // TODO: This map should really be just a Set but libgdx doesn't provide this
     private final LongMap<Long> visibleChunks = new LongMap<>(100); // populated with the chunk IDs of all chunks that intersect the view frustum

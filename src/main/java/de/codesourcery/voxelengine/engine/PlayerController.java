@@ -46,10 +46,9 @@ public class PlayerController extends InputAdapter
      * When the user keeps a mouse button pressed down, 
      * we'll register this as individual mouse clicks every X seconds. 
      */
-    private static final float BUTTON_PRESS_REPEAT_INTERVAL_SECS = 0.5f;
+    private static final float BUTTON_PRESS_REPEAT_INTERVAL_SECS = 0.3f;
     
-    private boolean onePressed;
-    private boolean twoPressed;
+    private int toolbarSlotPressed=-1;
     
     private boolean forwardPressed;
     private boolean backwardPressed;
@@ -129,14 +128,11 @@ public class PlayerController extends InputAdapter
             }
         }
         
-        if ( onePressed ) 
+        if ( toolbarSlotPressed != -1 ) 
         {
-            player.toolbar.setSelectedSlot( 0 );
-            onePressed = false;
-        } else if ( twoPressed ) {
-            player.toolbar.setSelectedSlot( 1 );
-            twoPressed = false;
-        }
+            player.toolbar.setSelectedSlot( toolbarSlotPressed );
+            toolbarSlotPressed = -1;
+        } 
         
         if (rotateRightPressed) {
             player.rotate(-delta * ROTATION_ANGLE);
@@ -261,9 +257,11 @@ public class PlayerController extends InputAdapter
         } else if (keycode == ROTATE_LEFT) {
             rotateLeftPressed = true;
         } else if ( keycode == Keys.NUM_1 ) {
-            onePressed = true;
+            toolbarSlotPressed = 0;
         } else if ( keycode == Keys.NUM_2 ) {
-            twoPressed = true;
+            toolbarSlotPressed = 1;
+        } else if ( keycode == Keys.NUM_3 ) {
+            toolbarSlotPressed = 2;
         }
         return true;
     }
@@ -283,10 +281,8 @@ public class PlayerController extends InputAdapter
             rotateRightPressed = false;
         } else if (keycode == ROTATE_LEFT) {
             rotateLeftPressed = false;
-        } else if ( keycode == Keys.NUM_1 ) {
-            onePressed = false;
-        } else if ( keycode == Keys.NUM_2 ) {
-            twoPressed = false;
+        } else if ( keycode == Keys.NUM_1 || keycode == Keys.NUM_2 || keycode == Keys.NUM_3 ) {
+            toolbarSlotPressed = -1;
         }
         return true;
     }

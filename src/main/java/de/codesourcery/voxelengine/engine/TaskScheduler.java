@@ -139,70 +139,71 @@ public class TaskScheduler implements Disposable
 
     public void add(Task task) 
     {
-        switch( task.priority ) 
-        {
-            case HI:
-                synchronized( QUEUE_LOCK ) 
-                {
-                    hiPrioQueue.add( task );
-                    QUEUE_LOCK.notifyAll();
-                }
-                break;
-            case LO:
-                synchronized( QUEUE_LOCK ) {
-                    loPrioQueue.add( task );
-                    QUEUE_LOCK.notifyAll();
-                }                
-                break;
-            case RENDER:
-                synchronized( RENDER_QUEUE_LOCK ) {
-                    renderQueue.add( task );
-                }
-                break;
-            default:
-                break;
-        }
+        task.perform();
+//        switch( task.priority ) 
+//        {
+//            case HI:
+//                synchronized( QUEUE_LOCK ) 
+//                {
+//                    hiPrioQueue.add( task );
+//                    QUEUE_LOCK.notifyAll();
+//                }
+//                break;
+//            case LO:
+//                synchronized( QUEUE_LOCK ) {
+//                    loPrioQueue.add( task );
+//                    QUEUE_LOCK.notifyAll();
+//                }                
+//                break;
+//            case RENDER:
+//                synchronized( RENDER_QUEUE_LOCK ) {
+//                    renderQueue.add( task );
+//                }
+//                break;
+//            default:
+//                break;
+//        }
     }
 
-    public void add(List<Task> tasks) 
-    {
-        final int len = tasks.size();
-        final ArrayList<Task> hi= new ArrayList<>(len);
-        final ArrayList<Task> lo = new ArrayList<>(len);
-        final ArrayList<Task> render = new ArrayList<>(len);
-
-        for ( Task task : tasks ) 
-        {
-            switch( task.priority ) 
-            {
-                case HI:
-                    hi.add( task );
-                    break;
-                case LO:
-                    lo.add( task );
-                    break;
-                case RENDER:
-                    render.add( task );
-            }
-        }
-        if ( ! hi.isEmpty() || ! lo.isEmpty() ) 
-        {
-            synchronized( QUEUE_LOCK ) 
-            {
-                hiPrioQueue.addAll( hi );
-                loPrioQueue.addAll( lo );
-                QUEUE_LOCK.notifyAll();
-            }              
-        }
-
-        if ( ! render.isEmpty() ) 
-        {
-            synchronized( RENDER_QUEUE_LOCK ) 
-            {
-                renderQueue.addAll( render );
-            }
-        }
-    }
+//    public void add(List<Task> tasks) 
+//    {
+//        final int len = tasks.size();
+//        final ArrayList<Task> hi= new ArrayList<>(len);
+//        final ArrayList<Task> lo = new ArrayList<>(len);
+//        final ArrayList<Task> render = new ArrayList<>(len);
+//
+//        for ( Task task : tasks ) 
+//        {
+//            switch( task.priority ) 
+//            {
+//                case HI:
+//                    hi.add( task );
+//                    break;
+//                case LO:
+//                    lo.add( task );
+//                    break;
+//                case RENDER:
+//                    render.add( task );
+//            }
+//        }
+//        if ( ! hi.isEmpty() || ! lo.isEmpty() ) 
+//        {
+//            synchronized( QUEUE_LOCK ) 
+//            {
+//                hiPrioQueue.addAll( hi );
+//                loPrioQueue.addAll( lo );
+//                QUEUE_LOCK.notifyAll();
+//            }              
+//        }
+//
+//        if ( ! render.isEmpty() ) 
+//        {
+//            synchronized( RENDER_QUEUE_LOCK ) 
+//            {
+//                renderQueue.addAll( render );
+//            }
+//        }
+//    }
 
     public void render() 
     {

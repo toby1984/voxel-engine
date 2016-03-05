@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
@@ -42,7 +41,7 @@ public class ChunkManager implements Disposable
 
     public static final int MAX_CACHE_SIZE = 32;
 
-    public static final boolean CLEAR_CHUNK_DIR = true;
+    public static final boolean CLEAR_CHUNK_DIR_ON_STARTUP = false;
 
     private final File chunkDir;
 
@@ -62,7 +61,7 @@ public class ChunkManager implements Disposable
         this.scheduler = scheduler;
         this.chunkDir = chunkDir;
 
-        if ( CLEAR_CHUNK_DIR ) {
+        if ( CLEAR_CHUNK_DIR_ON_STARTUP ) {
             LOG.warn("ChunkManager(): Deleting chunk directory "+chunkDir.getAbsolutePath());
             recursiveDelete( chunkDir );
         }
@@ -317,6 +316,9 @@ public class ChunkManager implements Disposable
     private Chunk loadOrCreateChunk(ChunkKey key) 
     {
         Chunk result = loadChunk(key);
+        if ( key.equals( -4 , 0 , -1 ) ) { // TODO: Remove debug code !!!
+            System.out.println("Loaded watched chunk: "+result);
+        }
         if ( result == null ) 
         {
             result = generateChunk( key );
@@ -338,6 +340,9 @@ public class ChunkManager implements Disposable
         final boolean debugEnabled = LOG.isDebugEnabled();
         for ( Chunk chunk : chunks ) 
         {
+            if ( chunk.chunkKey.equals( -4 , 0 , -1 ) ) { // TODO: Remove debug code !!!
+                System.out.println("UNLOADING watched chunk: "+chunk);
+            }
             if ( ! chunk.isMarkedForUnloading() ) 
             {
                 chunk.markForUnloading();
@@ -462,7 +467,7 @@ public class ChunkManager implements Disposable
 
     static Chunk generateChunk(ChunkKey key) {
 
-        final Chunk chunk = new Chunk(key, World.CHUNK_SIZE ,World.CHUNK_BLOCK_SIZE );
+        final Chunk chunk = new Chunk(key);
         chunk.setNeedsSave( true );
 
 //        long hash = 31+key.x*31;

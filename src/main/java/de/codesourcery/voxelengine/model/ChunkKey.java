@@ -189,6 +189,10 @@ public final class ChunkKey
     public float dst2(ChunkKey other) {
         return dst2( other.x , other.y , other.z );
     }    
+    
+    public boolean equals(int x,int y,int z) {
+        return this.x == x && this.y == y && this.z == z;
+    }
 
     @Override
     public boolean equals(Object obj) 

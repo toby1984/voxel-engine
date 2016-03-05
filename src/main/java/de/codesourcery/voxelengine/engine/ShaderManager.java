@@ -17,7 +17,7 @@ public class ShaderManager implements Disposable
 {
     private static final Logger LOG = Logger.getLogger(ShaderManager.class);
 
-    public static final String FLAT_SHADER = "flatsolid";
+    public static final String FLAT_SHADER = "flatsolid"; // flatsolid
     public static final String WIREFRAME_SHADER = "wireframe";
     public static final String SELECTED_BLOCK_SHADER = "selectedblock";
     

@@ -15,6 +15,7 @@ import com.badlogic.gdx.math.Vector3;
 
 import de.codesourcery.voxelengine.model.Chunk;
 import de.codesourcery.voxelengine.model.ChunkKey;
+import de.codesourcery.voxelengine.model.World;
 
 /**
  * Filesystem representation of a chunk , provides methods for reading/writing chunk data.
@@ -134,6 +135,12 @@ public class ChunkFile
 
         final int totalChunkSize = s.readInt();
         final float blockSize = s.readFloat();
+        if ( totalChunkSize != World.CHUNK_SIZE ) {
+            throw new RuntimeException("Internal error, file has incompatible chunk size "+totalChunkSize);
+        }
+        if ( blockSize != World.CHUNK_BLOCK_SIZE ) {
+            throw new RuntimeException("Internal error, file has incompatible chunk block size "+blockSize);
+        }        
         final int flags = s.readInt();
         final int[] blockTypes = s.readIntArray();
 
@@ -142,7 +149,7 @@ public class ChunkFile
         final int chunkZ = s.readInt();
         final ChunkKey chunkKey =  new ChunkKey( chunkX ,chunkY,chunkZ ) ;
 
-        final Chunk result = new Chunk( chunkKey , totalChunkSize , blockSize , blockTypes );
+        final Chunk result = new Chunk( chunkKey , blockTypes );
         result.flags = flags;
         return result;
     }   
@@ -160,8 +167,8 @@ public class ChunkFile
     }
 
     private static void setPayload(SegmentWriter writer,Chunk chunk) throws IOException {
-        writer.writeInt( chunk.chunkSize );
-        writer.writeFloat( chunk.blocksize );
+        writer.writeInt( World.CHUNK_SIZE );
+        writer.writeFloat( World.CHUNK_BLOCK_SIZE );
         writer.writeInt( chunk.flags & ~Chunk.FLAG_NEEDS_SAVE );
         writer.writeIntArray( chunk.blockTypes );
         writer.writeInt( chunk.chunkKey.x );

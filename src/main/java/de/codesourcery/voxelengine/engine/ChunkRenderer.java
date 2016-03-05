@@ -14,6 +14,7 @@ import com.badlogic.gdx.utils.Disposable;
 
 import de.codesourcery.voxelengine.model.BlockType;
 import de.codesourcery.voxelengine.model.Chunk;
+import de.codesourcery.voxelengine.model.World;
 
 /**
  * Responsible for rendering a chunk.
@@ -61,6 +62,8 @@ public class ChunkRenderer implements Disposable
 
     // Used to hold data associated with the current quad
     private final Quad tmpQuad = new Quad();
+    
+    private int vertexPtr = 0;
 
     protected static final class Quad
     {
@@ -102,8 +105,8 @@ public class ChunkRenderer implements Disposable
 
         // for each block, create quads for all block sides that are adjacent 
         // to an empty neighbour block
-        final int chunkSize = chunk.chunkSize;
-        final float blockSize = chunk.blocksize;
+        final int chunkSize = World.CHUNK_SIZE;
+        final float blockSize = World.CHUNK_BLOCK_SIZE;
         final float halfBlockSize = blockSize/2f;
         final float halfWidth = chunkSize*blockSize/2f;
 
@@ -116,8 +119,7 @@ public class ChunkRenderer implements Disposable
                 float bz = chunk.center.z - halfWidth + halfBlockSize;
                 for ( int z = 0 ; z < chunkSize ; z++ , bz += blockSize  ) 
                 {
-                    final int blockType = chunk.getBlockType( x , y , z );
-                    if ( blockType != BlockType.BLOCKTYPE_AIR ) // only render non-empty blocks
+                    if ( chunk.isBlockNotEmpty( x , y , z ) ) // only render non-empty blocks
                     {
                         final int blockIndex = chunk.blockIndex(x,y,z);
                         if ( hasNoBackNeighbour( x , y , z ) ) {
@@ -128,20 +130,22 @@ public class ChunkRenderer implements Disposable
                         }
                         if ( hasNoLeftNeighbour( x , y , z ) ) {
                             addQuad( blockIndex ,bx , by , bz , SIDE_LEFT , halfBlockSize );
-                        }                    
+                        }
                         if ( hasNoRightNeighbour( x , y , z ) ) {
                             addQuad( blockIndex ,bx , by , bz , SIDE_RIGHT , halfBlockSize );
-                        }  
+                        }
                         if ( hasNoTopNeighbour( x , y , z ) ) {
                             addQuad( blockIndex ,bx , by , bz , SIDE_TOP , halfBlockSize );
-                        }    
+                        }
                         if ( hasNoBottomNeighbour( x , y , z ) ) {
                             addQuad( blockIndex ,bx , by , bz , SIDE_BOTTOM , halfBlockSize );
-                        }                     
+                        }
                     }
                 }
             }
         }
+        
+        this.vertexPtr = buffer.vertexPtr;
 
         final int vertexCount = buffer.vertexPtr / VERTEX_FLOAT_SIZE;
         final int triangleCount = vertexCount/3;
@@ -299,9 +303,10 @@ public class ChunkRenderer implements Disposable
 
     private void addTriangle(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 normal,float[] color) 
     {
-        final int bytesAvailable = buffer.vertexData.length - buffer.vertexPtr;
-        if ( bytesAvailable < 3*VERTEX_FLOAT_SIZE ) {
-            final float[] tmp = new float[ buffer.vertexData.length + buffer.vertexData.length/2 ]; 
+        final int maxSize = buffer.vertexData.length;
+        final int bytesAvailable = maxSize - buffer.vertexPtr;
+        if ( bytesAvailable < 10*VERTEX_FLOAT_SIZE ) {
+            final float[] tmp = new float[ maxSize + maxSize/2 ]; 
             System.arraycopy( buffer.vertexData , 0 , tmp , 0 , buffer.vertexPtr );
             buffer.vertexData = tmp;
         }
@@ -333,7 +338,7 @@ public class ChunkRenderer implements Disposable
 
     private boolean hasNoFrontNeighbour(int blockX,int blockY,int blockZ) 
     {
-        if ( blockZ+1 < chunk.chunkSize ) {
+        if ( blockZ+1 < World.CHUNK_SIZE ) {
             return chunk.isBlockEmpty( blockX , blockY , blockZ+1 ); 
         }
         return chunk.frontNeighbour.isBlockEmpty( blockX , blockY , 0 );
@@ -344,7 +349,7 @@ public class ChunkRenderer implements Disposable
         if ( blockZ-1 >= 0 ) {
             return chunk.isBlockEmpty( blockX , blockY , blockZ-1 ); 
         }
-        return chunk.backNeighbour.isBlockEmpty( blockX , blockY , chunk.backNeighbour.chunkSize-1 );
+        return chunk.backNeighbour.isBlockEmpty( blockX , blockY , World.CHUNK_SIZE-1 );
     }    
 
     private boolean hasNoLeftNeighbour(int blockX,int blockY,int blockZ) 
@@ -352,12 +357,12 @@ public class ChunkRenderer implements Disposable
         if ( blockX-1 >= 0 ) {
             return chunk.isBlockEmpty( blockX-1 , blockY , blockZ ); 
         }
-        return chunk.leftNeighbour.isBlockEmpty( chunk.leftNeighbour.chunkSize-1 , blockY , blockZ );
+        return chunk.leftNeighbour.isBlockEmpty( World.CHUNK_SIZE-1 , blockY , blockZ );
     }    
 
     private boolean hasNoRightNeighbour(int blockX,int blockY,int blockZ) 
     {
-        if ( blockX+1 < chunk.chunkSize ) {
+        if ( blockX+1 < World.CHUNK_SIZE ) {
             return chunk.isBlockEmpty( blockX+1 , blockY , blockZ ); 
         }
         return chunk.rightNeighbour.isBlockEmpty( 0 , blockY , blockZ );
@@ -365,7 +370,7 @@ public class ChunkRenderer implements Disposable
 
     private boolean hasNoTopNeighbour(int blockX,int blockY,int blockZ) 
     {
-        if ( blockY+1 < chunk.chunkSize ) {
+        if ( blockY+1 < World.CHUNK_SIZE ) {
             return chunk.isBlockEmpty( blockX , blockY+1 , blockZ ); 
         }
         return chunk.topNeighbour.isBlockEmpty( blockX , 0 , blockZ );
@@ -376,7 +381,7 @@ public class ChunkRenderer implements Disposable
         if ( blockY-1 >= 0 ) {
             return chunk.isBlockEmpty( blockX , blockY-1 , blockZ ); 
         }
-        return chunk.bottomNeighbour.isBlockEmpty( blockX , chunk.bottomNeighbour.chunkSize-1 , blockZ );
+        return chunk.bottomNeighbour.isBlockEmpty( blockX , World.CHUNK_SIZE-1 , blockZ );
     }     
 
     /**
@@ -389,7 +394,7 @@ public class ChunkRenderer implements Disposable
      */
     public int render(ShaderProgram shader,boolean trace) 
     {
-        final int vertexCount = buffer.vertexPtr / VERTEX_FLOAT_SIZE;
+        final int vertexCount = this.vertexPtr / VERTEX_FLOAT_SIZE;
         if ( trace ) {
             LOG.trace("render(): Rendering mesh with "+(vertexCount/3)+" triangles ("+vertexCount+" vertices)");
         }

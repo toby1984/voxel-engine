@@ -13,13 +13,13 @@ import junit.framework.TestCase;
 public class ChunkTest extends TestCase {
     
     public void testChunkIsEmpty() {
-        final Chunk chunk = new Chunk( new ChunkKey(0,0,0), 32 , 1f );
+        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
         assertTrue( chunk.isEmpty() );
     }
     
     public void testSetBlockTypes() {
         
-        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) , 32 , 1f );
+        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
         
         final Random rnd = new Random(0xdeadbeef);
         
@@ -48,14 +48,14 @@ public class ChunkTest extends TestCase {
     
     public void testChunkBoundaries() 
     {
-        final Chunk chunk = new Chunk( new ChunkKey(0,0,0), 32 , 1f );
+        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
         assertEquals( new Vector3(-16f,-16f,-16f) , chunk.boundingBox.min);
         assertEquals( new Vector3(16f,16f,16f) , chunk.boundingBox.max);
     }
     
     public void testWorldToBlock1() 
     {
-        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) ,World.CHUNK_SIZE , World.CHUNK_BLOCK_SIZE);
+        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
         final BlockKey blockKey = chunk.getBlockKey( new Vector3(0,0,0) );
         assertEquals( 16 , blockKey.x );
         assertEquals( 16 , blockKey.y );
@@ -66,7 +66,7 @@ public class ChunkTest extends TestCase {
     
     public void testWorldToBlock2() 
     {
-        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) , World.CHUNK_SIZE , World.CHUNK_BLOCK_SIZE);
+        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
         final BlockKey blockKey = chunk.getBlockKey( new Vector3(World.CHUNK_BLOCK_SIZE,0,0) );
         assertEquals( 17 , blockKey.x );
         assertEquals( 16 , blockKey.y );
@@ -77,7 +77,7 @@ public class ChunkTest extends TestCase {
     
     public void testWorldToBlock3() 
     {
-        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) , World.CHUNK_SIZE , World.CHUNK_BLOCK_SIZE);
+        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
         final BlockKey blockKey = chunk.getBlockKey( new Vector3(-World.CHUNK_HALF_WIDTH,-World.CHUNK_HALF_WIDTH,-World.CHUNK_HALF_WIDTH) );
         assertEquals( 0 , blockKey.x );
         assertEquals( 0 , blockKey.y );
@@ -88,7 +88,7 @@ public class ChunkTest extends TestCase {
     
     public void testWorldToBlock4() 
     {
-        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) , World.CHUNK_SIZE , World.CHUNK_BLOCK_SIZE);
+        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
         final BlockKey blockKey = chunk.getBlockKey( new Vector3(World.CHUNK_HALF_WIDTH-0.01f,World.CHUNK_HALF_WIDTH-0.01f,World.CHUNK_HALF_WIDTH-0.01f) );
         assertEquals( World.CHUNK_SIZE-1 , blockKey.x );
         assertEquals( World.CHUNK_SIZE-1 , blockKey.y );
@@ -99,7 +99,7 @@ public class ChunkTest extends TestCase {
     
     public void testWorldToBlock5() 
     {
-        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) , World.CHUNK_SIZE , World.CHUNK_BLOCK_SIZE);
+        final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
         final BlockKey blockKey = chunk.getBlockKey( new Vector3(0,0,0) );
         assertEquals( 16 , blockKey.x );
         assertEquals( 16 , blockKey.y );
@@ -110,8 +110,8 @@ public class ChunkTest extends TestCase {
     
     public void testWorldToBlock6() 
     {
-        final Chunk chunk = new Chunk( new ChunkKey(0,0, 0) , World.CHUNK_SIZE , World.CHUNK_BLOCK_SIZE);
-        final Vector3 worldCoords = new Vector3(0,0, - World.CHUNK_BLOCK_SIZE );
+        final Chunk chunk = new Chunk( new ChunkKey(0,0, 0) );
+        final Vector3 worldCoords = new Vector3(0,0, -World.CHUNK_BLOCK_SIZE );
         final BlockKey blockKey = chunk.getBlockKey( worldCoords );
         assertEquals( 16 , blockKey.x );
         assertEquals( 16 , blockKey.y );

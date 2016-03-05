@@ -1,12 +1,12 @@
 package de.codesourcery.voxelengine;
 
 import java.io.File;
+import java.io.IOException;
 
 import org.apache.log4j.Logger;
 
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.FPSLogger;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.GL30;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
@@ -25,22 +25,16 @@ import de.codesourcery.voxelengine.model.BlockType;
 import de.codesourcery.voxelengine.model.Chunk;
 import de.codesourcery.voxelengine.model.ChunkKey;
 import de.codesourcery.voxelengine.model.Item;
-import de.codesourcery.voxelengine.model.Player;
-import de.codesourcery.voxelengine.model.PlayerToolbar;
 import de.codesourcery.voxelengine.model.World;
 
 public class ApplicationMain implements ApplicationListener {
 
     private static final Logger LOG = Logger.getLogger(ApplicationMain.class);
 
-    private final File CHUNK_DIR = new File("/home/tobi/tmp/chunks");
-
     private static final StringBuilder stringBuilder = new StringBuilder();
 
     private static final BlockKey TMP_SELECTION = new BlockKey();
     private static final Vector3 TMP1 = new Vector3();
-
-    private FPSLogger fpsLogger;
 
     private World world;
     private PerspectiveCamera camera;
@@ -59,13 +53,28 @@ public class ApplicationMain implements ApplicationListener {
     {
         font = new BitmapFont();
 
-        fpsLogger = new FPSLogger();
         camera = new PerspectiveCamera();
         camera.near = 0.01f;
         camera.far = WorldRenderer.RENDER_DISTANCE_CHUNKS*World.CHUNK_WIDTH;
 
         spriteBatch = new SpriteBatch();
-        chunkManager = new ChunkManager( CHUNK_DIR , taskScheduler );
+        
+        final File chunkDir;
+        try {
+            final File tmpFile = File.createTempFile("test", "test" );
+            tmpFile.delete();
+            chunkDir = new File( tmpFile.getParentFile() , "chunks" );
+            if ( ! chunkDir.exists() && ! chunkDir.mkdirs() ) {
+                throw new IOException("Failed to create directory "+chunkDir.getAbsolutePath());
+            }
+            LOG.info("Chunk directory: "+chunkDir.getAbsolutePath());
+        } 
+        catch (IOException e) 
+        {
+            LOG.error("create(): Failed to create chunk directory",e);
+            throw new RuntimeException("Failed to create chunk directory",e);
+        }
+        chunkManager = new ChunkManager( chunkDir , taskScheduler );
 
         shaderManager = new ShaderManager();
         world = new World( shaderManager, chunkManager , camera );
@@ -98,8 +107,6 @@ public class ApplicationMain implements ApplicationListener {
     public void render() 
     {
         final float deltaTime = Gdx.graphics.getDeltaTime();
-
-        fpsLogger.log(); 
 
         // process keyboard/mouse inputs
         playerController.update( deltaTime );
@@ -316,10 +323,17 @@ public class ApplicationMain implements ApplicationListener {
         font.draw(spriteBatch, append("Loaded chunks: ",worldRenderer.getLoadedChunkCount()), 10, y );       
 
         y -= fontHeight;
-        font.draw(spriteBatch, append("Visible chunks: ",worldRenderer.getVisibleChunkCount()), 10, y );     
+        font.draw(spriteBatch, append("Visible chunks: ",worldRenderer.getVisibleChunkCount()), 10, y );   
+        
+        y -= fontHeight;
+        if ( world.selectedBlock.hasSelection() ) 
+        {
+            font.draw(spriteBatch, append("Selection: ",world.selectedBlock.chunkID,world.selectedBlock.blockID) , 10, y );
+        } else {
+            font.draw(spriteBatch, "Selection: NONE" , 10, y );
+        }
 
         y -= fontHeight;
-
         if ( world.player.toolbar.isItemSelected() ) 
         {
             final String name = world.player.toolbar.getSelectedItem().name;
@@ -336,24 +350,37 @@ public class ApplicationMain implements ApplicationListener {
         return stringBuilder.append( s1 ).append('(').append( object.x ).append(',').append( object.y ).append(',').append( object.z).append(')');
     }
 
-    private static String append(String s1,int x,int y,int z) {
+    private static CharSequence append(String s1,int x,int y,int z) {
         stringBuilder.setLength(0);
-        return stringBuilder.append( s1 ).append('(').append( x ).append(',').append( y ).append(',').append( z ).append(')').toString();
+        return stringBuilder.append( s1 ).append('(').append( x ).append(',').append( y ).append(',').append( z ).append(')');
     }    
 
-    private static String append(String s1,float object) {
+    private static CharSequence append(String s1,float object) {
         stringBuilder.setLength(0);
-        return stringBuilder.append( s1 ).append( object ).toString();
+        return stringBuilder.append( s1 ).append( object );
     }
-
-    private static String append(String s1,String object) {
+    
+    private static CharSequence append(String s1,long chunkID,int blockID) {
         stringBuilder.setLength(0);
-        return stringBuilder.append( s1 ).append( object ).toString();
+        final int chunkX = ChunkKey.getX( chunkID );
+        final int chunkY = ChunkKey.getY( chunkID );
+        final int chunkZ = ChunkKey.getZ( chunkID );
+        final int blockX = BlockKey.getX( blockID );
+        final int blockY = BlockKey.getY( blockID );
+        final int blockZ = BlockKey.getZ( blockID );
+        
+        return stringBuilder.append( s1 ).append( "chunk (" ).append( chunkX ).append(',').append( chunkY ).append(',').append( chunkZ ).append(')')
+                .append(" , block (").append( blockX ).append(',').append( blockY ).append(',').append( blockZ ).append(')');
     }    
 
-    private static String append(String s1,int object) {
+    private static CharSequence append(String s1,String object) {
         stringBuilder.setLength(0);
-        return stringBuilder.append( s1 ).append( object ).toString();
+        return stringBuilder.append( s1 ).append( object );
+    }    
+
+    private static CharSequence append(String s1,int object) {
+        stringBuilder.setLength(0);
+        return stringBuilder.append( s1 ).append( object );
     }    
 
     @Override
