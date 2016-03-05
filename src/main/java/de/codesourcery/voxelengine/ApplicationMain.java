@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.GL30;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Vector3;
 
 import de.codesourcery.voxelengine.engine.ChunkManager;
 import de.codesourcery.voxelengine.engine.PlayerController;
@@ -20,7 +21,6 @@ import de.codesourcery.voxelengine.engine.ShaderManager;
 import de.codesourcery.voxelengine.engine.TaskScheduler;
 import de.codesourcery.voxelengine.engine.WorldRenderer;
 import de.codesourcery.voxelengine.model.BlockKey;
-import de.codesourcery.voxelengine.model.BlockType;
 import de.codesourcery.voxelengine.model.Chunk;
 import de.codesourcery.voxelengine.model.ChunkKey;
 import de.codesourcery.voxelengine.model.World;
@@ -31,7 +31,10 @@ public class ApplicationMain implements ApplicationListener {
 
     private final File CHUNK_DIR = new File("/home/tobi/tmp/chunks");
 
+    private static final StringBuilder stringBuilder = new StringBuilder();
+    
     private static final BlockKey TMP_SELECTION = new BlockKey();
+    private static final Vector3 TMP1 = new Vector3();
 
     private FPSLogger fpsLogger;
 
@@ -46,6 +49,8 @@ public class ApplicationMain implements ApplicationListener {
     private final TaskScheduler taskScheduler = new TaskScheduler();
 
     private final RayMarcher rayMarcher = new RayMarcher();
+    
+    private int frameCounter;
 
 
     @Override
@@ -101,9 +106,6 @@ public class ApplicationMain implements ApplicationListener {
         // tick player (applies physics etc.)
         world.player.update( deltaTime ); // updates camera 
 
-        // update selection
-        updateSelection();
-
         // clear viewport 
         Gdx.gl30.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         Gdx.gl30.glClearColor( 0 , 0 , 0 , 1 );
@@ -112,6 +114,16 @@ public class ApplicationMain implements ApplicationListener {
         // render world
         worldRenderer.render(deltaTime);
 
+        /* Update selection.
+         * 
+         * This method must be called AFTER the world has been rendered
+         * because world rendering will load all chunks in range
+         */
+        updateSelection();
+        
+        // render selection
+        world.selectedBlock.render();
+        
         renderUI();
 
         // reset flags so we're again able to detect camera movement on the next frame 
@@ -121,7 +133,11 @@ public class ApplicationMain implements ApplicationListener {
     private void updateSelection() 
     {
         world.selectedBlock.clearSelection();
-        rayMarcher.set( world.camera.position , world.camera.direction );
+        
+        // "aiming" starts at center of screen
+        TMP1.set( Gdx.graphics.getWidth()/2f ,Gdx.graphics.getHeight()/2 , 0);
+        world.camera.unproject( TMP1 ); // unproject to point on the near plane
+        rayMarcher.set( TMP1 , world.camera.direction );
 
         // advance ray by one block so we don't select the block the player is currently in
         rayMarcher.advance();
@@ -147,7 +163,7 @@ public class ApplicationMain implements ApplicationListener {
             }
             if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
-                world.selectedBlock.setSelected( rayMarcher.chunkID , TMP_SELECTION.toID() );
+                world.selectedBlock.setSelected( rayMarcher.chunkID , rayMarcher.blockID );
                 break;
             }
             // check right neighbour
@@ -158,7 +174,7 @@ public class ApplicationMain implements ApplicationListener {
             }
             if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
-                world.selectedBlock.setSelected( rayMarcher.chunkID , TMP_SELECTION.toID() );
+                world.selectedBlock.setSelected( rayMarcher.chunkID , rayMarcher.blockID );
                 break;
             }   
             // check top neighbour
@@ -169,7 +185,7 @@ public class ApplicationMain implements ApplicationListener {
             }
             if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
-                world.selectedBlock.setSelected( rayMarcher.chunkID , TMP_SELECTION.toID() );
+                world.selectedBlock.setSelected( rayMarcher.chunkID , rayMarcher.blockID );
                 break;
             }         
             // check bottom neighbour
@@ -180,7 +196,7 @@ public class ApplicationMain implements ApplicationListener {
             }
             if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
-                world.selectedBlock.setSelected( rayMarcher.chunkID , TMP_SELECTION.toID() );
+                world.selectedBlock.setSelected( rayMarcher.chunkID , rayMarcher.blockID );
                 break;
             }                
             // check back neighbour
@@ -191,7 +207,7 @@ public class ApplicationMain implements ApplicationListener {
             }
             if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
-                world.selectedBlock.setSelected( rayMarcher.chunkID , TMP_SELECTION.toID() );
+                world.selectedBlock.setSelected( rayMarcher.chunkID , rayMarcher.blockID );
                 break;
             }    
             // check front neighbour
@@ -202,7 +218,7 @@ public class ApplicationMain implements ApplicationListener {
             }
             if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
-                world.selectedBlock.setSelected( rayMarcher.chunkID , TMP_SELECTION.toID() );
+                world.selectedBlock.setSelected( rayMarcher.chunkID , rayMarcher.blockID );
                 break;
             }                 
             rayMarcher.advance();
@@ -220,34 +236,52 @@ public class ApplicationMain implements ApplicationListener {
         final float fontHeight = 14;
 
         float y = Gdx.graphics.getHeight() - fontHeight;
-        font.draw(spriteBatch, "FPS: "+Gdx.graphics.getFramesPerSecond(), 10 , y );
+        font.draw(spriteBatch, append("FPS: " , Gdx.graphics.getFramesPerSecond() ), 10 , y );
 
-        y -= fontHeight;
         final int chunkX = ChunkKey.getX( world.player.cameraChunkID );
         final int chunkY = ChunkKey.getY( world.player.cameraChunkID );
         final int chunkZ = ChunkKey.getZ( world.player.cameraChunkID );
-        font.draw(spriteBatch, "Current chunk: ("+chunkX+","+chunkY+","+","+chunkZ+")" , 10 , y );
+        
+        y -= fontHeight;
+        font.draw(spriteBatch, append( "Current chunk: ",chunkX,chunkY,chunkZ) , 10 , y );
 
         y -= fontHeight;
-        font.draw(spriteBatch, "Camera pos: "+camera.position, 10, y );
+        font.draw(spriteBatch, append("Camera pos: ",camera.position) , 10, y );
 
         y -= fontHeight;
-        font.draw(spriteBatch, "Player feet pos: "+world.player.feetPosition() , 10, y );
+        font.draw(spriteBatch, append("Player feet pos: ",world.player.feetPosition()) , 10, y );
 
         y -= fontHeight;
-        font.draw(spriteBatch, "Player head pos: "+world.camera.position, 10, y );        
+        font.draw(spriteBatch, append("Player head pos: ",world.camera.position), 10, y );        
 
         y -= fontHeight;
-        font.draw(spriteBatch, "Player direction: "+world.camera.direction, 10, y );
+        font.draw(spriteBatch, append("Player direction: ",world.camera.direction), 10, y );
 
         y -= fontHeight;
-        font.draw(spriteBatch, "Loaded chunks: "+worldRenderer.getLoadedChunkCount(), 10, y );       
+        font.draw(spriteBatch, append("Loaded chunks: ",worldRenderer.getLoadedChunkCount()), 10, y );       
 
         y -= fontHeight;
-        font.draw(spriteBatch, "Visible chunks: "+worldRenderer.getVisibleChunkCount(), 10, y );          
+        font.draw(spriteBatch, append("Visible chunks: ",worldRenderer.getVisibleChunkCount()), 10, y );          
 
         spriteBatch.end();        
     }
+    
+    private static String append(String s1,Vector3 object) {
+        stringBuilder.setLength(0);
+        return stringBuilder.append( s1 ).append('(').append( object.x ).append(',').append( object.y ).append(',').append( object.z).append(')').toString();
+    }
+    
+    private static String append(String s1,int x,int y,int z) {
+        return stringBuilder.append( s1 ).append('(').append( x ).append(',').append( y ).append(',').append( z ).append(')').toString();
+    }    
+    
+    private static String append(String s1,float object) {
+        return stringBuilder.append( s1 ).append( object ).toString();
+    }
+    
+    private static String append(String s1,int object) {
+        return stringBuilder.append( s1 ).append( object ).toString();
+    }    
 
     @Override
     public void resize(int width, int height) 

@@ -281,11 +281,6 @@ public class WorldRenderer
         if ( doLog ) {
             LOG.trace("render(): Total triangles: "+totalTriangles);
         }
-        
-        /*
-         * Render selected block
-         */
-        world.selectedBlock.render();
     }
 
     private static boolean intersectsSphere(Frustum f,float x,float y,float z,float radius) 
