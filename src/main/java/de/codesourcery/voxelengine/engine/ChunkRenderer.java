@@ -3,7 +3,6 @@ package de.codesourcery.voxelengine.engine;
 import org.apache.log4j.Logger;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.GL30;
 import com.badlogic.gdx.graphics.VertexAttribute;
 import com.badlogic.gdx.graphics.VertexAttributes;
@@ -13,9 +12,17 @@ import com.badlogic.gdx.graphics.glutils.VertexBufferObjectWithVAO;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 
-public class VoxelMesh implements Disposable 
+import de.codesourcery.voxelengine.model.BlockType;
+import de.codesourcery.voxelengine.model.Chunk;
+
+/**
+ * Responsible for rendering a chunk.
+ *
+ * @author tobias.gierke@code-sourcery.de
+ */
+public class ChunkRenderer implements Disposable 
 {
-    private static final Logger LOG = Logger.getLogger(VoxelMesh.class);
+    private static final Logger LOG = Logger.getLogger(ChunkRenderer.class);
 
     private static final int SIDE_BACK   = 0;
     private static final int SIDE_FRONT  = 1;
@@ -42,13 +49,18 @@ public class VoxelMesh implements Disposable
     private static final Vector3 NORMAL_TOP     = new Vector3( 0, 1, 0);
     private static final Vector3 NORMAL_BOTTOM  = new Vector3( 0,-1, 0);
 
+    // the chunk that should be rendered
     private Chunk chunk;
-    private int vertexCount;
+    
+    // VBO to hold vertex data
     private VertexBufferObjectWithVAO vbo;
 
+    // temporary buffer where vertex data will
+    // be written to before it gets uploaded to the GPU
     private VertexDataBuffer buffer;
 
-    private final Quad quad = new Quad();
+    // Used to hold data associated with the current quad
+    private final Quad tmpQuad = new Quad();
 
     protected static final class Quad
     {
@@ -70,26 +82,25 @@ public class VoxelMesh implements Disposable
     {
         switch( side ) 
         {
-            case SIDE_TOP:    quad.set( blockIndex, cx , cy + halfBlockSize , cz , side ); break;
-            case SIDE_BOTTOM: quad.set( blockIndex, cx , cy - halfBlockSize , cz , side ); break;
-            case SIDE_LEFT:   quad.set( blockIndex, cx - halfBlockSize , cy , cz , side ); break;
-            case SIDE_RIGHT:  quad.set( blockIndex, cx + halfBlockSize , cy , cz , side ); break;
-            case SIDE_FRONT:  quad.set( blockIndex, cx , cy , cz + halfBlockSize , side ); break;
-            case SIDE_BACK:   quad.set( blockIndex, cx , cy , cz - halfBlockSize , side ); break;
+            case SIDE_TOP:    tmpQuad.set( blockIndex, cx , cy + halfBlockSize , cz , side ); break;
+            case SIDE_BOTTOM: tmpQuad.set( blockIndex, cx , cy - halfBlockSize , cz , side ); break;
+            case SIDE_LEFT:   tmpQuad.set( blockIndex, cx - halfBlockSize , cy , cz , side ); break;
+            case SIDE_RIGHT:  tmpQuad.set( blockIndex, cx + halfBlockSize , cy , cz , side ); break;
+            case SIDE_FRONT:  tmpQuad.set( blockIndex, cx , cy , cz + halfBlockSize , side ); break;
+            case SIDE_BACK:   tmpQuad.set( blockIndex, cx , cy , cz - halfBlockSize , side ); break;
             default:
                 throw new IllegalArgumentException("Unknown side: "+side);
         }
-        addTriangle( quad , halfBlockSize );
+        addTriangle( tmpQuad , halfBlockSize );
     }
 
     public void buildMesh(Chunk chunk,VertexDataBuffer buffer)
     {
         this.buffer = buffer;
         this.buffer.vertexPtr = 0;
-        this.vertexCount = 0;
         this.chunk = chunk;
 
-        // Create quads for all block sides that are adjacent 
+        // for each block, create quads for all block sides that are adjacent 
         // to an empty neighbour block
         final int chunkSize = chunk.chunkSize;
         final float blockSize = chunk.blocksize;
@@ -132,20 +143,22 @@ public class VoxelMesh implements Disposable
             }
         }
 
-        vertexCount = buffer.vertexPtr / VERTEX_FLOAT_SIZE;
-
+        final int vertexCount = buffer.vertexPtr / VERTEX_FLOAT_SIZE;
         final int triangleCount = vertexCount/3;
 
+        // make sure vertex data fits into VBO
         if ( vbo == null || vbo.getNumMaxVertices() < vertexCount ) 
         {
             if ( vbo != null ) {
+                LOG.info("populateVBO(): Re-allocating VBO for "+vertexCount+" vertices");
                 vbo.dispose();
+            } else {
+                LOG.info("populateVBO(): Allocating VBO for "+vertexCount+" vertices");
             }
-            LOG.info("populateVBO(): Allocating VBO for "+vertexCount+" vertices");
             vbo = new VertexBufferObjectWithVAO( false , vertexCount , VERTEX_ATTRIBUTES );
         }
 
-        final float sizeInMb = (buffer.vertexPtr*4f)/(1024f*1024f);
+        final float sizeInMb = (buffer.vertexPtr*4)/(1024*1024f);
         LOG.info("populateVBO(): Uploading "+buffer.vertexPtr+" floats ("+sizeInMb+" MB, "+triangleCount+" triangles)");
         vbo.setVertices( buffer.vertexData , 0 , buffer.vertexPtr );
 
@@ -366,7 +379,15 @@ public class VoxelMesh implements Disposable
         return chunk.bottomNeighbour.isBlockEmpty( blockX , chunk.bottomNeighbour.chunkSize-1 , blockZ );
     }     
 
-    public int render(ShaderProgram shader,Camera camera,boolean trace) 
+    /**
+     * Render this chunk.
+     * 
+     * @param shader
+     * @param camera
+     * @param trace
+     * @return
+     */
+    public int render(ShaderProgram shader,boolean trace) 
     {
         final int vertexCount = buffer.vertexPtr / VERTEX_FLOAT_SIZE;
         if ( trace ) {

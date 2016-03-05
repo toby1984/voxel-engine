@@ -13,6 +13,9 @@ import org.apache.log4j.Logger;
 
 import com.badlogic.gdx.math.Vector3;
 
+import de.codesourcery.voxelengine.model.Chunk;
+import de.codesourcery.voxelengine.model.ChunkKey;
+
 /**
  * Filesystem representation of a chunk , provides methods for reading/writing chunk data.
  *
@@ -129,20 +132,9 @@ public class ChunkFile
 
     private static Chunk readChunk(Segment s) {
 
-        /*
-        writer.writeInt( chunk.chunkSize );
-        writer.writeFloat( chunk.blocksize );
-        writer.writeInt( chunk.flags & ~Chunk.FLAG_NEEDS_SAVE );
-        writer.writeVector3( chunk.center );
-        writer.writeIntArray( chunk.blockTypes );
-        writer.writeInt( chunk.chunkKey.x );
-        writer.writeInt( chunk.chunkKey.y );
-        writer.writeInt( chunk.chunkKey.z );         
-         */
         final int totalChunkSize = s.readInt();
         final float blockSize = s.readFloat();
         final int flags = s.readInt();
-        final Vector3 center = s.readVector3(); // 3*4 bytes 
         final int[] blockTypes = s.readIntArray();
 
         final int chunkX = s.readInt();
@@ -150,7 +142,7 @@ public class ChunkFile
         final int chunkZ = s.readInt();
         final ChunkKey chunkKey =  new ChunkKey( chunkX ,chunkY,chunkZ ) ;
 
-        final Chunk result = new Chunk( chunkKey , center , totalChunkSize , blockSize , blockTypes );
+        final Chunk result = new Chunk( chunkKey , totalChunkSize , blockSize , blockTypes );
         result.flags = flags;
         return result;
     }   
@@ -171,7 +163,6 @@ public class ChunkFile
         writer.writeInt( chunk.chunkSize );
         writer.writeFloat( chunk.blocksize );
         writer.writeInt( chunk.flags & ~Chunk.FLAG_NEEDS_SAVE );
-        writer.writeVector3( chunk.center );
         writer.writeIntArray( chunk.blockTypes );
         writer.writeInt( chunk.chunkKey.x );
         writer.writeInt( chunk.chunkKey.y );
@@ -302,8 +293,8 @@ public class ChunkFile
         }
     }
 
-    protected static final class SegmentReader implements Segment {
-
+    protected static final class SegmentReader implements Segment 
+    {
         private final byte[] headerBuffer = new byte[ HEADER_SIZE ];
         private byte[] dataBuffer = new byte[ 64*1024 ];
 

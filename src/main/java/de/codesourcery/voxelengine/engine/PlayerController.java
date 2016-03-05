@@ -20,10 +20,15 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Buttons;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.math.Vector3;
+
+import de.codesourcery.voxelengine.model.Player;
 
 public class PlayerController extends InputAdapter 
 {
+    private static final Vector3 tmpV1 =new Vector3();
+    
     public static final float ROTATION_ANGLE = 1.5f*360f;
     
     public static final float TRANSLATION_UNITS = 4f; 
@@ -50,30 +55,33 @@ public class PlayerController extends InputAdapter
 
     private final Player player;
     
+    private final Camera camera;
+    
     public PlayerController (final Player player) 
     {
         this.player = player;
+        camera = player.world.camera;
     }
 
     public void update (float delta) 
     {
         if (rotateRightPressed) {
-            player.rotate(player.up, -delta * ROTATION_ANGLE);
+            player.rotate(-delta * ROTATION_ANGLE);
         } 
         else if (rotateLeftPressed) {
-            player.rotate(player.up, delta * ROTATION_ANGLE);
+            player.rotate(delta * ROTATION_ANGLE);
         } else if ( Gdx.input.isCursorCatched() ) {
             mouseLook( Gdx.input.getDeltaX() , Gdx.input.getDeltaY() );
         }
         
         if ( leftPressed ) {
-            tmp.set( player.direction ).crs( player.up ).scl( -delta * TRANSLATION_UNITS );
+            tmp.set( camera.direction ).crs( camera.up ).scl( -delta * TRANSLATION_UNITS );
             if ( ! Player.CAMERA_MODE_FLYING) {
                 tmp.y = 0;
             }
             player.translate( tmp );
         } else if ( rightPressed ) {
-            tmp.set( player.direction ).crs( player.up ).scl( delta * TRANSLATION_UNITS );
+            tmp.set( camera.direction ).crs( camera.up ).scl( delta * TRANSLATION_UNITS );
             if ( ! Player.CAMERA_MODE_FLYING) {
                 tmp.y = 0;
             }
@@ -81,13 +89,13 @@ public class PlayerController extends InputAdapter
         }
         if (forwardPressed) 
         {
-            tmp.set(player.direction).scl(delta * TRANSLATION_UNITS);
+            tmp.set(camera.direction).scl(delta * TRANSLATION_UNITS);
             if ( ! Player.CAMERA_MODE_FLYING) {
                 tmp.y = 0;
             }
             player.translate(tmp);
         } else if (backwardPressed) {
-            tmp.set(player.direction).scl(-delta * TRANSLATION_UNITS);
+            tmp.set(camera.direction).scl(-delta * TRANSLATION_UNITS);
             if ( ! Player.CAMERA_MODE_FLYING) {
                 tmp.y = 0;
             }
@@ -95,14 +103,20 @@ public class PlayerController extends InputAdapter
         }
     }
     
-    protected void mouseLook(float deltaX, float deltaY) 
+    protected void mouseLook(int dx,int dy) 
     {
-        deltaX = deltaX / Gdx.graphics.getWidth();
-        deltaY = -deltaY / Gdx.graphics.getHeight();
-        
-        tmp.set(player.direction).crs(player.up).y = 0f;
-        player.rotateLook( tmp.nor(), deltaY * ROTATION_ANGLE);
-        player.rotateLook( Vector3.Y, deltaX * -ROTATION_ANGLE);
+        final float deltaX = dx / (float) Gdx.graphics.getWidth();
+        final float deltaY = dy / (float) Gdx.graphics.getHeight();
+
+        tmpV1.set(camera.direction).crs(camera.up).y = 0f;
+
+        // rotation around X axis
+        final float rotXAxis = -deltaY * ROTATION_ANGLE;
+        player.rotateAround(camera.position, tmpV1.nor(), rotXAxis);
+
+        // rotation around Y axis
+        final float rotYAxis = deltaX * -ROTATION_ANGLE;
+        player.rotateAround(camera.position, Vector3.Y, rotYAxis);        
     }
 
     @Override

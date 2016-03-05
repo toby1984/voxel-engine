@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import de.codesourcery.voxelengine.model.Chunk;
+import de.codesourcery.voxelengine.model.ChunkKey;
 import junit.framework.TestCase;
 
 public class ChunkFileTest extends TestCase 

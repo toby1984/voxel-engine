@@ -1,7 +1,7 @@
-package de.codesourcery.voxelengine.engine;
+package de.codesourcery.voxelengine.model;
 
 /**
- * Interface holding constants of all block types.
+ * Interface holding constants for all block types.
  *
  * @author tobias.gierke@code-sourcery.de
  */

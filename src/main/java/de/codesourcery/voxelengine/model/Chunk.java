@@ -1,4 +1,4 @@
-package de.codesourcery.voxelengine.engine;
+package de.codesourcery.voxelengine.model;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -10,12 +10,22 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.utils.Disposable;
 
+import de.codesourcery.voxelengine.engine.ChunkRenderer;
+
 /**
  * A chunk.
  * 
- * Chunks are cubes made up of voxels. The number of voxels along all axis is equal and the outer 'shell' (outmost layer of voxels) of
- * a chunk always holds the voxels of the adjacent chunk (if any). This is to avoid cross-chunk lookups when meshing a chunk but
- * obviously incurs a write penalty whenever boundary voxels are changed (because now two chunks instead of one need to be updated).  
+ * <p>Chunks are cubes made up of voxels. The number of voxels along all axis is equal (=each chunk represents a cube).
+ * Chunks keep six pointers to their neighbouring chunks (not all of them may be set though, this depends on
+ * whether neighbouring chunks have been loaded).</p>
+ * 
+ * <p>Blocks within a chunk are addressed in a right-handed coordinate system with the origin block (0,0,0) being in
+ * the bottom left-most corner at the "back" of the cube (=when looking along the -z axis).</p>
+ * 
+ * <p>Meta-data for each block of this chunk is stored in a 1d array for increased cache hit rate and to avoid multiple array bound checks
+ * that would be performed if we were to use a multi-dimensional array instead.</p>
+ * 
+ * <p>The {@link #blockIndex(int,int,int) index} into the internal array is calculated as <code>x+y*chunkSize + chunkSize * chunkSize * z</code></p>
  *
  * @author tobias.gierke@code-sourcery.de
  */
@@ -38,22 +48,38 @@ public class Chunk implements Disposable
      */
     public static final int FLAG_NEEDS_SAVE = 1<<3;
     
+    /**
+     * The width/height/depth of this chunk in blocks.
+     * 
+     * Since chunks have equal dimensions along all axis, we only need to store one value here.
+     */
     public final int chunkSize;
     
+    /**
+     * The size of one block in world space.
+     */
     public final float blocksize;
 
     /**
-     * Chunk key, <code>null</code> for sub-chunks.
+     * Chunk key.
      */
     public final ChunkKey chunkKey;
     
+    /**
+     * Flag to mark that this chunk for unloading.
+     * 
+     * Once a flag has been marked, this flag cannot be reset.
+     */
     private boolean markedForUnload;
     
     private final AtomicBoolean isDisposed = new AtomicBoolean(false);
     
+    /**
+     * Flag that marks a chunk as being "in-use". 
+     * 
+     * Chunks must never be unloaded while they're in-use.
+     */
     private boolean isInUse = false;
-    
-    public boolean isVisible = false;
     
     /**
      * Bitmask holding chunk flags.
@@ -63,7 +89,7 @@ public class Chunk implements Disposable
     /**
      * Mesh to render this chunk
      */
-    public VoxelMesh mesh;
+    public ChunkRenderer mesh;
     
     /**
      * World coordinates of this chunk's center 
@@ -71,14 +97,11 @@ public class Chunk implements Disposable
     public final Vector3 center=new Vector3();
     
     /**
-     * Bounding box of this chunk (EXCLUDES outer 'shell' from neighbouring chunks!).
+     * Bounding box of this chunk.
      */
     public final BoundingBox boundingBox;
     
-    /*
-     * Chunk neighbours in right-handed coordinate system (looking along the -z axis).
-     * 
-     */
+     // Chunk neighbours in right-handed coordinate system (looking along the -z axis).
     public Chunk leftNeighbour;
     public Chunk rightNeighbour;
     public Chunk topNeighbour;
@@ -96,6 +119,7 @@ public class Chunk implements Disposable
         return "Chunk ("+chunkKey+"): center="+center+", flags = "+flagsToString()+" , bounds = "+boundingBox;
     }
 
+    // equality check used in unit-testing
     @Override
     public boolean equals(Object obj) 
     {
@@ -128,13 +152,14 @@ public class Chunk implements Disposable
     /**
      * Create chunk.
      * 
+     * @param key the coordinates of this chunk
      * @param center Center coordinates of this chunk in world coordinates 
      * @param chunkSize Chunk size 
      * @param blockSize Size of a single voxel in world space
      */
-    public Chunk(ChunkKey key,Vector3 center,int chunkSize,float blockSize) 
+    public Chunk(ChunkKey key,int chunkSize,float blockSize) 
     {
-        this(key,center,chunkSize,blockSize, new int[ chunkSize*chunkSize*chunkSize ] );
+        this(key,chunkSize,blockSize, new int[ chunkSize*chunkSize*chunkSize ] );
         Arrays.fill( blockTypes , BlockType.BLOCKTYPE_AIR );
         flags |= FLAG_EMPTY;        
     }
@@ -142,12 +167,13 @@ public class Chunk implements Disposable
     /**
      * Create chunk.
      * 
+     * @param key the coordinates of this chunk.
      * @param center Center coordinates of this chunk in world coordinates 
      * @param chunkSize Chunk size
      * @param blockSize Size of a single voxel in world space
      * @param blockTypes array holding the type of each voxel in this chunk (number of array elements needs to be (chunkSize+2)^3 ) 
      */
-    public Chunk(ChunkKey key,Vector3 center,int chunkSize,float blockSize,int[] blockTypes) 
+    public Chunk(ChunkKey key,int chunkSize,float blockSize,int[] blockTypes) 
     {
         if ( Integer.bitCount( chunkSize ) != 1 ) 
         {
@@ -161,7 +187,7 @@ public class Chunk implements Disposable
         }
         
         this.chunkKey = key;
-        this.center.set( center );
+        ChunkKey.getChunkCenter( key , this.center );
         this.chunkSize = chunkSize;
         this.blocksize = blockSize;
         this.blockTypes = blockTypes;
@@ -318,6 +344,20 @@ public class Chunk implements Disposable
         return blockTypes[ blockIndex ];
     }     
     
+    public int getBlockType(Vector3 worldCoords) {
+        return getBlockType( blockIndex( worldCoords ) );
+    }
+   
+    public boolean isBlockEmpty(Vector3 worldCoords) 
+    {
+        return getBlockType( worldCoords ) == BlockType.BLOCKTYPE_AIR;
+    }
+    
+    public boolean isBlockNotEmpty(Vector3 worldCoords) 
+    {
+        return getBlockType( worldCoords ) != BlockType.BLOCKTYPE_AIR;
+    }    
+    
     /**
      * For a given block coordinate, returns the absolute index 
      * into this chunk's internal data arrays.
@@ -388,15 +428,28 @@ public class Chunk implements Disposable
      */
     public boolean isBlockNotEmpty(int bx,int by,int bz) {
         return getBlockType( bx , by , bz ) != BlockType.BLOCKTYPE_AIR;
-    }    
+    }  
     
+    public boolean isBlockNotEmpty(BlockKey key) {
+        return getBlockType( key.x , key.y , key.z ) != BlockType.BLOCKTYPE_AIR;
+    }     
+    
+    /**
+     * Returns whether this chunk holds onto objects that need
+     * to be disposed while on the OpenGL rendering thread.
+     * 
+     * @return
+     * @see #disposeVBO()
+     */
     public boolean needsDisposeOnRenderingThread() {
         return mesh != null; // mesh allocates VBOs and thus needs to be discarded on OpenGL thread
     }
-
-    @Override
-    public void dispose() 
-    {
+    
+    /**
+     * Dispose of any OpenGL objects this chunk is holding on to.
+     * @see #needsDisposeOnRenderingThread()
+     */
+    public void disposeVBO() {
         if ( mesh != null ) 
         {
             if ( LOG.isDebugEnabled() ) {
@@ -404,7 +457,19 @@ public class Chunk implements Disposable
             }
             mesh.dispose();
             mesh = null;
-        }        
+        }  
+    }
+
+    /**
+     * Dispose this chunk.
+     * 
+     * <p>Make sure to call this method on the OpenGL rendering thread
+     * when {@link #needsDisposeOnRenderingThread()} returns <code>true</code>.</p>
+     */
+    @Override
+    public void dispose() 
+    {
+        disposeVBO();
     }
     
     /**
@@ -415,10 +480,10 @@ public class Chunk implements Disposable
      */
     public int blockIndex(Vector3 worldCoords) 
     {
-        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
-        final int by = (int) Math.floor( (worldCoords.y - center.y + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
-        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
-        if ( bx < 0 || by < 0 || bz < 0 || bx >= World.WORLD_CHUNK_SIZE || by >= World.WORLD_CHUNK_SIZE || bz >= World.WORLD_CHUNK_SIZE ) {
+        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
+        final int by = (int) Math.floor( (worldCoords.y - center.y + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
+        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
+        if ( bx < 0 || by < 0 || bz < 0 || bx >= World.CHUNK_SIZE || by >= World.CHUNK_SIZE || bz >= World.CHUNK_SIZE ) {
             throw new RuntimeException("Internal error, world coordinates "+worldCoords+" maps to ("+bx+","+by+","+bz+") in chunk "+chunkKey+" @ center "+center);
         }
         return blockIndex(bx,by,bz);
@@ -439,20 +504,59 @@ public class Chunk implements Disposable
      * Populates a {@link BlockKey} instance using world coordinates.
      * 
      * @param worldCoords
-     * @param key Block key to set
+     * @param result Block key to set
      * 
-     * @return <code>key</code> (for chaining)
+     * @return <code>result</code> (for chaining)
      */    
-    public BlockKey getBlockKey( Vector3 worldCoords , BlockKey key ) 
+    public BlockKey getBlockKey( Vector3 worldCoords , BlockKey result ) 
     {
-        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
-        final int by = (int) Math.floor( (worldCoords.y - center.y + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
-        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.WORLD_CHUNK_HALF_WIDTH) / World.WORLD_CHUNK_BLOCK_SIZE );
-        if ( bx < 0 || by < 0 || bz < 0 || bx >= World.WORLD_CHUNK_SIZE || by >= World.WORLD_CHUNK_SIZE || bz >= World.WORLD_CHUNK_SIZE ) {
-            throw new RuntimeException("Internal error, world coordinates "+worldCoords+" maps to "+key+" in chunk "+chunkKey+" @ center "+center);
+        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
+        final int by = (int) Math.floor( (worldCoords.y - center.y + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
+        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
+        if ( bx < 0 || by < 0 || bz < 0 || bx >= World.CHUNK_SIZE || by >= World.CHUNK_SIZE || bz >= World.CHUNK_SIZE ) {
+            throw new RuntimeException("Internal error, world coordinates "+worldCoords+" maps to ("+bx+","+by+","+bz+") in chunk "+chunkKey+" @ center "+center);
         }
-        key.set( bx , by , bz );
-        return key;
+        result.set( bx , by , bz );
+        return result;
+    }
+    
+    /**
+     * Returns the center coordinates of a given block within this chunk.
+     *      
+     * @param key
+     * @return
+     */
+    public Vector3 getBlockCenter(BlockKey key) {
+        return getBlockCenter(key.x,key.y,key.z , new Vector3() );
+    }
+    
+    /**
+     * Returns the center coordinates of a given block within this chunk.
+     *      
+     * @param blockX
+     * @param blockY
+     * @param blockZ
+     * @return
+     */
+    public Vector3 getBlockCenter(int blockX,int blockY,int blockZ) {
+        return getBlockCenter(blockX,blockY,blockZ,new Vector3() );
+    }
+            
+    /**
+     * Returns the center coordinates of a given block within this chunk.
+     * 
+     * @param blockX
+     * @param blockY
+     * @param blockZ
+     * @param result
+     * @return
+     */
+    public Vector3 getBlockCenter(int blockX,int blockY,int blockZ,Vector3 result) 
+    {
+        result.x = (blockX*World.CHUNK_BLOCK_SIZE ) + center.x - World.CHUNK_HALF_WIDTH;
+        result.y = (blockY*World.CHUNK_BLOCK_SIZE ) + center.y - World.CHUNK_HALF_WIDTH;
+        result.z = (blockZ*World.CHUNK_BLOCK_SIZE ) + center.z - World.CHUNK_HALF_WIDTH;
+        return result;
     }
     
     private String flagsToString() 
@@ -492,6 +596,11 @@ public class Chunk implements Disposable
         return buffer.toString();
     }
     
+    /**
+     * Returns whether this chunk is currently actively used by the system.
+     * 
+     * @return
+     */
     public boolean isInUse() {
         return isInUse;
     }
@@ -526,5 +635,5 @@ public class Chunk implements Disposable
     
     public void markDisposed() {
         this.isDisposed.set(true);
-    }    
+    }
 }

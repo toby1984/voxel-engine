@@ -14,13 +14,28 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.commons.lang3.Validate;
 import org.apache.log4j.Logger;
 
-import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.LongMap;
 import com.badlogic.gdx.utils.LongMap.Values;
 
 import de.codesourcery.voxelengine.engine.TaskScheduler.Task;
+import de.codesourcery.voxelengine.model.BlockType;
+import de.codesourcery.voxelengine.model.Chunk;
+import de.codesourcery.voxelengine.model.ChunkKey;
+import de.codesourcery.voxelengine.model.World;
 
+/**
+ * Responsible of loading and unloading (=saving) of chunks.
+ *
+ * <p>This implementation uses the {@link TaskScheduler} to asynchronously
+ * load/unload chunk data. Loading chunks runs as {@link TaskScheduler.Prio high-priority tasks}
+ * while unloading (saving chunks) is a low-priority one.</p>
+ * 
+ * <p>TODO: The current implementation operates on individual chunks, it might be
+ * more efficient to group chunks into regions and operate on multiple chunks at once.</p>
+ *  
+ * @author tobias.gierke@code-sourcery.de
+ */
 public class ChunkManager implements Disposable
 {
     private static final Logger LOG = Logger.getLogger(ChunkManager.class);
@@ -37,6 +52,7 @@ public class ChunkManager implements Disposable
     
     private int cleanCount = CLEAN_FREQUENCY;
 
+    // scheduler used for asynchronous loading/unloading of chunks
     private final TaskScheduler scheduler;
     
     public ChunkManager(File chunkDir,TaskScheduler scheduler) 
@@ -178,6 +194,11 @@ public class ChunkManager implements Disposable
         return result;
     }
 
+    /**
+     * Task responsible for asynchronously loading a chunk .
+     *
+     * @author tobias.gierke@code-sourcery.de
+     */
     protected final class ChunkLoader extends TaskScheduler.Task
     {
         private final ChunkKey toLoad;
@@ -211,6 +232,8 @@ public class ChunkManager implements Disposable
         }
     }
     
+    // adds chunks to the internal chunk list, linking them
+    // with any neighbour chunks if these are already loaded. 
     private void addChunks(List<Chunk> chunksToAdd) 
     {
         for ( int i = 0 , len = chunksToAdd.size() ; i < len ; i++ ) 
@@ -255,6 +278,8 @@ public class ChunkManager implements Disposable
         }
     }
     
+    // removes a chunk from the internal chunk list,unlinking it
+    // from any neighbour chunks that are also loaded.
     private void removeChunk(Chunk current) 
     {
         final ChunkKey key = current.chunkKey;
@@ -300,6 +325,14 @@ public class ChunkManager implements Disposable
         return result;
     }
 
+    /**
+     * Asynchronously unloads a list of chunks.
+     * 
+     * <p>Only chunks that are not already marked for unloading 
+     * will be processed.</p>
+     * 
+     * @param chunks
+     */
     public void unloadChunks(Collection<Chunk> chunks) 
     {
         final boolean debugEnabled = LOG.isDebugEnabled();
@@ -429,13 +462,11 @@ public class ChunkManager implements Disposable
 
     static Chunk generateChunk(ChunkKey key) {
 
-        final float centerX = key.x* World.WORLD_CHUNK_WIDTH;
-        final float centerY = key.y* World.WORLD_CHUNK_WIDTH;
-        final float centerZ = key.z* World.WORLD_CHUNK_WIDTH;
+        final float centerX = key.x* World.CHUNK_WIDTH;
+        final float centerY = key.y* World.CHUNK_WIDTH;
+        final float centerZ = key.z* World.CHUNK_WIDTH;
 
-        final Vector3 center = new Vector3(centerX,centerY,centerZ);
-
-        final Chunk chunk = new Chunk(key, center ,World.WORLD_CHUNK_SIZE ,World.WORLD_CHUNK_BLOCK_SIZE );
+        final Chunk chunk = new Chunk(key, World.CHUNK_SIZE ,World.CHUNK_BLOCK_SIZE );
         chunk.setNeedsSave( true );
 
         long hash = 31+key.x*31;
@@ -445,20 +476,20 @@ public class ChunkManager implements Disposable
 
         if ( key.y == 0 ) // create ground plane 
         {
-            final int middle = World.WORLD_CHUNK_SIZE/2;
+            final int middle = World.CHUNK_SIZE/2;
             //            chunk.setBlockType( middle , middle , middle , BlockType.BLOCKTYPE_SOLID_1 ); 
             final int yMin = middle-1;
             final int yMax = middle+1;
             
-            final float rSquared = (World.WORLD_CHUNK_HALF_WIDTH/4)*(World.WORLD_CHUNK_HALF_WIDTH/4);
-            float by = centerY - World.WORLD_CHUNK_HALF_WIDTH + World.WORLD_CHUNK_HALF_BLOCK_SIZE;
-            for ( int y = yMin ; y <=  yMax ; y++ , by += World.WORLD_CHUNK_BLOCK_SIZE ) 
+            final float rSquared = (World.CHUNK_HALF_WIDTH/4)*(World.CHUNK_HALF_WIDTH/4);
+            float by = centerY - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
+            for ( int y = yMin ; y <=  yMax ; y++ , by += World.CHUNK_BLOCK_SIZE ) 
             {
-                float bx = centerX - World.WORLD_CHUNK_HALF_WIDTH + World.WORLD_CHUNK_HALF_BLOCK_SIZE;
-                for ( int x = 0 ; x < World.WORLD_CHUNK_SIZE ; x++ , bx += World.WORLD_CHUNK_BLOCK_SIZE ) 
+                float bx = centerX - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
+                for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ , bx += World.CHUNK_BLOCK_SIZE ) 
                 {
-                    float bz = centerZ - World.WORLD_CHUNK_HALF_WIDTH + World.WORLD_CHUNK_HALF_BLOCK_SIZE;
-                    for ( int z = 0 ; z < World.WORLD_CHUNK_SIZE ; z++ , bz += World.WORLD_CHUNK_BLOCK_SIZE ) 
+                    float bz = centerZ - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
+                    for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ , bz += World.CHUNK_BLOCK_SIZE ) 
                     {
 //                        float dstSquared = (bx-centerX)*(bx-centerX)+(by-centerY)*(by-centerY)+(bz-centerZ)*(bz-centerZ);
 //                        if ( dstSquared < rSquared ) {
@@ -472,7 +503,6 @@ public class ChunkManager implements Disposable
         } else {
             chunk.setFlags( Chunk.FLAG_EMPTY );
         }
-        chunk.setFlags( Chunk.FLAG_NEEDS_REBUILD );
         if ( LOG.isDebugEnabled() ) {
             LOG.debug("generateChunk(): Generated "+chunk);
         }

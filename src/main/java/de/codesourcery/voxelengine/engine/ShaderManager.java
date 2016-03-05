@@ -1,4 +1,4 @@
-package de.codesourcery.voxelengine.shaders;
+package de.codesourcery.voxelengine.engine;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -19,6 +19,7 @@ public class ShaderManager implements Disposable
 
     public static final String FLAT_SHADER = "flatsolid";
     public static final String WIREFRAME_SHADER = "wireframe";
+    public static final String SELECTED_BLOCK_SHADER = "selectedblock";
     
     private final Map<String,ShaderProgram> shaders = new HashMap<>();
 
