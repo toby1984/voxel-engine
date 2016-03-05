@@ -89,7 +89,7 @@ public class Chunk implements Disposable
     /**
      * Mesh to render this chunk
      */
-    public ChunkRenderer mesh;
+    public ChunkRenderer renderer;
     
     /**
      * World coordinates of this chunk's center 
@@ -403,7 +403,7 @@ public class Chunk implements Disposable
      * @return
      */
     public boolean needsRebuild() {
-        return mesh == null || hasFlags( Chunk.FLAG_NEEDS_REBUILD ) ;
+        return renderer == null || hasFlags( Chunk.FLAG_NEEDS_REBUILD ) ;
     }
     
     /**
@@ -417,6 +417,16 @@ public class Chunk implements Disposable
     public boolean isBlockEmpty(int bx,int by,int bz) {
         return getBlockType( bx , by , bz ) == BlockType.BLOCKTYPE_AIR;
     }
+    
+    /**
+     * Returns whether a given block in this chunk is empty.
+     * 
+     * @param key
+     * @return
+     */
+    public boolean isBlockEmpty(BlockKey key) {
+        return getBlockType( key.x , key.y , key.z ) == BlockType.BLOCKTYPE_AIR;
+    }    
     
     /**
      * Returns whether a given block in this chunk is not empty.
@@ -442,7 +452,7 @@ public class Chunk implements Disposable
      * @see #disposeVBO()
      */
     public boolean needsDisposeOnRenderingThread() {
-        return mesh != null; // mesh allocates VBOs and thus needs to be discarded on OpenGL thread
+        return renderer != null; // mesh allocates VBOs and thus needs to be discarded on OpenGL thread
     }
     
     /**
@@ -450,13 +460,13 @@ public class Chunk implements Disposable
      * @see #needsDisposeOnRenderingThread()
      */
     public void disposeVBO() {
-        if ( mesh != null ) 
+        if ( renderer != null ) 
         {
             if ( LOG.isDebugEnabled() ) {
                 LOG.debug("dispose(): Releasing mesh of chunk "+this);
             }
-            mesh.dispose();
-            mesh = null;
+            renderer.dispose();
+            renderer = null;
         }  
     }
 

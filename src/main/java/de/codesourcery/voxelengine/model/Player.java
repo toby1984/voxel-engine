@@ -26,7 +26,7 @@ public class Player
     /**
      * Used to disable gravity during player movement.
      */
-    public static final boolean CAMERA_MODE_FLYING = false;
+    public static final boolean CAMERA_MODE_FLYING = true;
     
     /**
      * Player Y position is adjusted by deltaTime * COLLISION_Y_ADJUST
@@ -50,6 +50,8 @@ public class Player
     public boolean playerRotated = true; // set to true to force initialization
     
     public long cameraChunkID;
+    
+    public final PlayerToolbar toolbar = new PlayerToolbar();
     
     /**
      * Create player instance.
@@ -267,5 +269,5 @@ public class Player
     {
         camera.rotateAround(point, axis, angle);
         playerRotated = true;
-    }
+    }    
 }

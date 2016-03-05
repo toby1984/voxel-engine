@@ -163,12 +163,12 @@ public class ChunkRenderer implements Disposable
         vbo.setVertices( buffer.vertexData , 0 , buffer.vertexPtr );
 
         // dispose old mesh
-        if ( chunk.mesh != this ) 
+        if ( chunk.renderer != this ) 
         {
-            if ( chunk.mesh != null ) {
-                chunk.mesh.dispose();
+            if ( chunk.renderer != null ) {
+                chunk.renderer.dispose();
             }
-            chunk.mesh = this;
+            chunk.renderer = this;
         }
         chunk.clearFlags( Chunk.FLAG_NEEDS_REBUILD );
     }

@@ -42,6 +42,15 @@ public class PlayerController extends InputAdapter
     public static final int ROTATE_RIGHT = Keys.E;
     public static final int ROTATE_LEFT = Keys.Q;
     
+    /**
+     * When the user keeps a mouse button pressed down, 
+     * we'll register this as individual mouse clicks every X seconds. 
+     */
+    private static final float BUTTON_PRESS_REPEAT_INTERVAL_SECS = 0.5f;
+    
+    private boolean onePressed;
+    private boolean twoPressed;
+    
     private boolean forwardPressed;
     private boolean backwardPressed;
     
@@ -50,6 +59,11 @@ public class PlayerController extends InputAdapter
     
     private boolean rotateRightPressed;
     protected boolean rotateLeftPressed;
+    
+    private float buttonPressDuration;
+    private boolean buttonPressRegistered;
+    private boolean leftButtonPressed;
+    private boolean rightButtonPressed;
     
     private final Vector3 tmp = new Vector3();
 
@@ -62,9 +76,68 @@ public class PlayerController extends InputAdapter
         this.player = player;
         camera = player.world.camera;
     }
+    
+    /**
+     * Tells the controller that we've registered (and possibly acted upon)
+     * any mouse button presses that were reported.
+     */
+    public void buttonPressRegistered() 
+    {
+        buttonPressRegistered = true;
+    }
+    
+    /**
+     * Returns whether the left mouse button has been pressed.
+     * 
+     * @return
+     */
+    public boolean leftButtonPressed() {
+        return leftButtonPressed && ! buttonPressRegistered;
+    }
+    
+    /**
+     * Returns whether the right mouse button has been pressed.
+     * 
+     * @return
+     */    
+    public boolean rightButtonPressed() {
+        return rightButtonPressed && ! buttonPressRegistered;
+    }    
+    
+    /**
+     * Returns whether either the left or right mouse button has been pressed.
+     * 
+     * @return
+     */     
+    public boolean buttonPressed() {
+        return leftButtonPressed() || rightButtonPressed();
+    }    
 
+    /**
+     * Apply user input.
+     * 
+     * @param delta
+     */
     public void update (float delta) 
     {
+        if ( buttonPressRegistered ) 
+        {
+            buttonPressDuration += delta;
+            if ( buttonPressDuration >= BUTTON_PRESS_REPEAT_INTERVAL_SECS ) {
+                buttonPressDuration = 0;
+                buttonPressRegistered = false;
+            }
+        }
+        
+        if ( onePressed ) 
+        {
+            player.toolbar.setSelectedSlot( 0 );
+            onePressed = false;
+        } else if ( twoPressed ) {
+            player.toolbar.setSelectedSlot( 1 );
+            twoPressed = false;
+        }
+        
         if (rotateRightPressed) {
             player.rotate(-delta * ROTATION_ANGLE);
         } 
@@ -118,18 +191,44 @@ public class PlayerController extends InputAdapter
         final float rotYAxis = deltaX * -ROTATION_ANGLE;
         player.rotateAround(camera.position, Vector3.Y, rotYAxis);        
     }
-
+    
     @Override
-    public boolean touchDown (int screenX, int screenY, int pointer, int button) {
-        return false;
+    public boolean touchDown (int screenX, int screenY, int pointer, int button) 
+    {
+        if ( ! Gdx.input.isCursorCatched() ) 
+        {
+            return true;
+        }
+        System.out.println("touchDown: "+button);
+        // note: I don't register pressing both buttons at the same time because it makes no sense (create block + delete block ?)
+        if ( button == Buttons.LEFT && ! (leftButtonPressed || rightButtonPressed ) ) {
+            leftButtonPressed = true;
+            buttonPressDuration = 0;
+        } else if ( button == Buttons.RIGHT && ! (rightButtonPressed || leftButtonPressed ) ) {
+            rightButtonPressed = true;
+            buttonPressDuration = 0;
+        }        
+        return true;
     }
-
+    
     @Override
     public boolean touchUp (int screenX, int screenY, int pointer, int button) 
     {
-        if ( button == Buttons.LEFT && ! Gdx.input.isCursorCatched() ) 
+        if ( ! Gdx.input.isCursorCatched() ) 
         {
-            Gdx.input.setCursorCatched( true );
+            if ( button == Buttons.LEFT ) {
+                Gdx.input.setCursorCatched( true );
+            }
+            return true;
+        }
+        if ( button == Buttons.LEFT ) {
+            leftButtonPressed = false;
+            buttonPressDuration = 0;
+        } 
+        else if ( button == Buttons.RIGHT ) 
+        {
+            rightButtonPressed = false;
+            buttonPressDuration = 0;
         }
         return true;
     }
@@ -161,6 +260,10 @@ public class PlayerController extends InputAdapter
             rotateRightPressed = true;
         } else if (keycode == ROTATE_LEFT) {
             rotateLeftPressed = true;
+        } else if ( keycode == Keys.NUM_1 ) {
+            onePressed = true;
+        } else if ( keycode == Keys.NUM_2 ) {
+            twoPressed = true;
         }
         return true;
     }
@@ -180,6 +283,10 @@ public class PlayerController extends InputAdapter
             rotateRightPressed = false;
         } else if (keycode == ROTATE_LEFT) {
             rotateLeftPressed = false;
+        } else if ( keycode == Keys.NUM_1 ) {
+            onePressed = false;
+        } else if ( keycode == Keys.NUM_2 ) {
+            twoPressed = false;
         }
         return true;
     }

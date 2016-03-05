@@ -234,7 +234,7 @@ public class WorldRenderer
 
         visibleChunkCount = visibleChunks.size;
         
-         // Rebuild & render visible chunks.
+         // Render
         if ( CULL_FACES ) {
             Gdx.gl30.glEnable( GL20.GL_CULL_FACE );
         } else {
@@ -274,7 +274,7 @@ public class WorldRenderer
                         throw e;
                     }
                 }                
-                totalTriangles += chunk.mesh.render( chunkShader , doLog );
+                totalTriangles += chunk.renderer.render( chunkShader , doLog );
             }
         }
         chunkShader.end();        
@@ -304,11 +304,11 @@ public class WorldRenderer
 
     private void buildMesh(Chunk chunk) 
     {
-        if ( chunk.mesh == null ) 
+        if ( chunk.renderer == null ) 
         {
-            chunk.mesh = new ChunkRenderer();
+            chunk.renderer = new ChunkRenderer();
         }
         LOG.debug("buildMesh(): Building mesh for "+chunk);
-        chunk.mesh.buildMesh( chunk , vertexBuffer );
+        chunk.renderer.buildMesh( chunk , vertexBuffer );
     }
 }

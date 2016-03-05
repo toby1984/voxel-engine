@@ -21,8 +21,12 @@ import de.codesourcery.voxelengine.engine.ShaderManager;
 import de.codesourcery.voxelengine.engine.TaskScheduler;
 import de.codesourcery.voxelengine.engine.WorldRenderer;
 import de.codesourcery.voxelengine.model.BlockKey;
+import de.codesourcery.voxelengine.model.BlockType;
 import de.codesourcery.voxelengine.model.Chunk;
 import de.codesourcery.voxelengine.model.ChunkKey;
+import de.codesourcery.voxelengine.model.Item;
+import de.codesourcery.voxelengine.model.Player;
+import de.codesourcery.voxelengine.model.PlayerToolbar;
 import de.codesourcery.voxelengine.model.World;
 
 public class ApplicationMain implements ApplicationListener {
@@ -32,7 +36,7 @@ public class ApplicationMain implements ApplicationListener {
     private final File CHUNK_DIR = new File("/home/tobi/tmp/chunks");
 
     private static final StringBuilder stringBuilder = new StringBuilder();
-    
+
     private static final BlockKey TMP_SELECTION = new BlockKey();
     private static final Vector3 TMP1 = new Vector3();
 
@@ -49,9 +53,6 @@ public class ApplicationMain implements ApplicationListener {
     private final TaskScheduler taskScheduler = new TaskScheduler();
 
     private final RayMarcher rayMarcher = new RayMarcher();
-    
-    private int frameCounter;
-
 
     @Override
     public void create() 
@@ -119,21 +120,68 @@ public class ApplicationMain implements ApplicationListener {
          * This method must be called AFTER the world has been rendered
          * because world rendering will load all chunks in range
          */
-        updateSelection();
-        
+        final Item tool = world.player.toolbar.getSelectedItem();
+        final boolean playerCanChangeBlock = tool != null && (tool.canCreateBlock() || tool.canDestroyBlock() );
+        if ( playerCanChangeBlock ) 
+        {
+            final Item item = world.player.toolbar.getSelectedItem();
+            updateSelection( item.canCreateBlock() , item.canDestroyBlock() );
+        } else {
+            world.selectedBlock.clearSelection();
+        }
+
+        if ( playerCanChangeBlock && playerController.buttonPressed() && world.selectedBlock.hasSelection() )
+        {
+            if ( playerController.leftButtonPressed()  )
+            {
+                final Chunk selectedChunk = chunkManager.getChunk( world.selectedBlock.chunkID );
+                final int blockID = world.selectedBlock.blockID;
+                final int bx = BlockKey.getX( blockID );
+                final int by = BlockKey.getY( blockID );
+                final int bz = BlockKey.getZ( blockID );
+
+                boolean chunkChanged = false;
+                if ( tool.canCreateBlock() ) 
+                {
+                    if ( selectedChunk.isBlockEmpty( bx , by , bz ) ) 
+                    {
+                        playerController.buttonPressRegistered();
+                        if ( tool.createBlock( selectedChunk ,  bx , by , bz ) ) 
+                        {
+                            selectedChunk.clearFlags( Chunk.FLAG_EMPTY );
+                            chunkChanged = true;
+                        }
+                    }
+                } 
+                else if ( tool.canDestroyBlock() ) 
+                {
+                    if ( selectedChunk.isBlockNotEmpty( bx , by , bz ) ) 
+                    {
+                        playerController.buttonPressRegistered();
+                        selectedChunk.setBlockType( bx , by , bz , BlockType.BLOCKTYPE_AIR );
+                        selectedChunk.updateIsEmptyFlag();
+                        chunkChanged = true;                            
+                    }
+                }
+                if ( chunkChanged ) {
+                    selectedChunk.setFlags( Chunk.FLAG_NEEDS_REBUILD | Chunk.FLAG_NEEDS_SAVE );
+                }
+            } 
+        } 
+
         // render selection
         world.selectedBlock.render();
-        
+
         renderUI();
 
         // reset flags so we're again able to detect camera movement on the next frame 
         world.player.resetMovementFlags();
     }
 
-    private void updateSelection() 
+    private void updateSelection(boolean canSelectEmpty,boolean canSelectOccupied) 
     {
         world.selectedBlock.clearSelection();
-        
+
         // "aiming" starts at center of screen
         TMP1.set( Gdx.graphics.getWidth()/2f ,Gdx.graphics.getHeight()/2 , 0);
         world.camera.unproject( TMP1 ); // unproject to point on the near plane
@@ -145,14 +193,22 @@ public class ApplicationMain implements ApplicationListener {
 
         rayMarcher.distance = 0;
 
-        while ( rayMarcher.distance < 10*World.CHUNK_BLOCK_SIZE ) { // only try to find selection at most 10 blocks away
-            
+        for ( ; rayMarcher.distance < 10*World.CHUNK_BLOCK_SIZE ; rayMarcher.advance() ) { // only try to find selection at most 10 blocks away
+
             Chunk chunk = chunkManager.getChunk( rayMarcher.chunkID );
-            
-            if ( chunk.isBlockNotEmpty( rayMarcher.block ) ) { // we hit a non-empty block
-                world.selectedBlock.setSelected( rayMarcher.chunkID , rayMarcher.blockID );
+
+            final boolean blockOccupied = chunk.isBlockNotEmpty( rayMarcher.block );
+            if ( blockOccupied ) 
+            {
+                if ( canSelectOccupied ) { // we hit a non-empty block
+                    world.selectedBlock.setSelected( rayMarcher.chunkID , rayMarcher.blockID );
+                }
                 break;
             } 
+            if ( ! canSelectEmpty )
+            {
+                continue;
+            }
             
             // we hit an empty block, only select it if any of the adjacent blocks is not empty
 
@@ -221,7 +277,6 @@ public class ApplicationMain implements ApplicationListener {
                 world.selectedBlock.setSelected( rayMarcher.chunkID , rayMarcher.blockID );
                 break;
             }                 
-            rayMarcher.advance();
         }        
     }
 
@@ -241,7 +296,7 @@ public class ApplicationMain implements ApplicationListener {
         final int chunkX = ChunkKey.getX( world.player.cameraChunkID );
         final int chunkY = ChunkKey.getY( world.player.cameraChunkID );
         final int chunkZ = ChunkKey.getZ( world.player.cameraChunkID );
-        
+
         y -= fontHeight;
         font.draw(spriteBatch, append( "Current chunk: ",chunkX,chunkY,chunkZ) , 10 , y );
 
@@ -261,25 +316,43 @@ public class ApplicationMain implements ApplicationListener {
         font.draw(spriteBatch, append("Loaded chunks: ",worldRenderer.getLoadedChunkCount()), 10, y );       
 
         y -= fontHeight;
-        font.draw(spriteBatch, append("Visible chunks: ",worldRenderer.getVisibleChunkCount()), 10, y );          
+        font.draw(spriteBatch, append("Visible chunks: ",worldRenderer.getVisibleChunkCount()), 10, y );     
+
+        y -= fontHeight;
+
+        if ( world.player.toolbar.isItemSelected() ) 
+        {
+            final String name = world.player.toolbar.getSelectedItem().name;
+            font.draw(spriteBatch, append("Selected tool: ", name) , 10, y );
+        } else {
+            font.draw(spriteBatch, "Selected tool: <NONE>", 10, y );
+        }
 
         spriteBatch.end();        
     }
-    
-    private static String append(String s1,Vector3 object) {
+
+    private static CharSequence append(String s1,Vector3 object) {
         stringBuilder.setLength(0);
-        return stringBuilder.append( s1 ).append('(').append( object.x ).append(',').append( object.y ).append(',').append( object.z).append(')').toString();
+        return stringBuilder.append( s1 ).append('(').append( object.x ).append(',').append( object.y ).append(',').append( object.z).append(')');
     }
-    
+
     private static String append(String s1,int x,int y,int z) {
+        stringBuilder.setLength(0);
         return stringBuilder.append( s1 ).append('(').append( x ).append(',').append( y ).append(',').append( z ).append(')').toString();
     }    
-    
+
     private static String append(String s1,float object) {
+        stringBuilder.setLength(0);
         return stringBuilder.append( s1 ).append( object ).toString();
     }
-    
+
+    private static String append(String s1,String object) {
+        stringBuilder.setLength(0);
+        return stringBuilder.append( s1 ).append( object ).toString();
+    }    
+
     private static String append(String s1,int object) {
+        stringBuilder.setLength(0);
         return stringBuilder.append( s1 ).append( object ).toString();
     }    
 
@@ -288,6 +361,9 @@ public class ApplicationMain implements ApplicationListener {
     {
         camera.viewportHeight = height;
         camera.viewportWidth = width;
+
+        spriteBatch.getProjectionMatrix().setToOrtho2D(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        spriteBatch.setProjectionMatrix( spriteBatch.getProjectionMatrix() );        
         LOG.info("resize(): "+width+"x"+height);
     }
 

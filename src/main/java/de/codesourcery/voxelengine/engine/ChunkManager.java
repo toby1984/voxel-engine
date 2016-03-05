@@ -462,41 +462,22 @@ public class ChunkManager implements Disposable
 
     static Chunk generateChunk(ChunkKey key) {
 
-        final float centerX = key.x* World.CHUNK_WIDTH;
-        final float centerY = key.y* World.CHUNK_WIDTH;
-        final float centerZ = key.z* World.CHUNK_WIDTH;
-
         final Chunk chunk = new Chunk(key, World.CHUNK_SIZE ,World.CHUNK_BLOCK_SIZE );
         chunk.setNeedsSave( true );
 
-        long hash = 31+key.x*31;
-        hash = hash*31 + key.y*31;
-        hash = hash*31 + key.z*31;
-        final Random rnd = new Random( hash );
+//        long hash = 31+key.x*31;
+//        hash = hash*31 + key.y*31;
+//        hash = hash*31 + key.z*31;
+//        final Random rnd = new Random( hash );
 
         if ( key.y == 0 ) // create ground plane 
         {
             final int middle = World.CHUNK_SIZE/2;
-            //            chunk.setBlockType( middle , middle , middle , BlockType.BLOCKTYPE_SOLID_1 ); 
-            final int yMin = middle-1;
-            final int yMax = middle+1;
-            
-            final float rSquared = (World.CHUNK_HALF_WIDTH/4)*(World.CHUNK_HALF_WIDTH/4);
-            float by = centerY - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
-            for ( int y = yMin ; y <=  yMax ; y++ , by += World.CHUNK_BLOCK_SIZE ) 
+            for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
             {
-                float bx = centerX - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
-                for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ , bx += World.CHUNK_BLOCK_SIZE ) 
+                for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
                 {
-                    float bz = centerZ - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
-                    for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ , bz += World.CHUNK_BLOCK_SIZE ) 
-                    {
-//                        float dstSquared = (bx-centerX)*(bx-centerX)+(by-centerY)*(by-centerY)+(bz-centerZ)*(bz-centerZ);
-//                        if ( dstSquared < rSquared ) {
-//                            chunk.setBlockType( x , y , z , BlockType.BLOCKTYPE_SOLID_1 );
-//                        }
-                        chunk.setBlockType( x ,y , z , rnd.nextInt(BlockType.MAX_BLOCK_TYPE+1));
-                    }
+                    chunk.setBlockType( x ,middle , z , BlockType.BLOCKTYPE_SOLID_2 );
                 }
             }
             chunk.updateIsEmptyFlag();
