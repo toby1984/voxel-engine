@@ -106,7 +106,7 @@ public class ChunkRenderer implements Disposable
         // for each block, create quads for all block sides that are adjacent 
         // to an empty neighbour block
         final int chunkSize = World.CHUNK_SIZE;
-        final float blockSize = World.CHUNK_BLOCK_SIZE;
+        final float blockSize = World.BLOCK_SIZE;
         final float halfBlockSize = blockSize/2f;
         final float halfWidth = chunkSize*blockSize/2f;
 

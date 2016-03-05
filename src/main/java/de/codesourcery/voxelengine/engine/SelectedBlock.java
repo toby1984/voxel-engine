@@ -70,15 +70,15 @@ public class SelectedBlock implements Disposable
         
         final Vector3 center = BlockKey.getBlockCenter( chunkID , blockID , new Vector3() );
         
-        p0.set(center.x-World.CHUNK_HALF_BLOCK_SIZE,center.y-World.CHUNK_HALF_BLOCK_SIZE,center.z+World.CHUNK_HALF_BLOCK_SIZE);
-        p1.set(center.x+World.CHUNK_HALF_BLOCK_SIZE,center.y-World.CHUNK_HALF_BLOCK_SIZE,center.z+World.CHUNK_HALF_BLOCK_SIZE);
-        p2.set(center.x+World.CHUNK_HALF_BLOCK_SIZE,center.y+World.CHUNK_HALF_BLOCK_SIZE,center.z+World.CHUNK_HALF_BLOCK_SIZE);
-        p3.set(center.x-World.CHUNK_HALF_BLOCK_SIZE,center.y+World.CHUNK_HALF_BLOCK_SIZE,center.z+World.CHUNK_HALF_BLOCK_SIZE);
+        p0.set(center.x-World.HALF_BLOCK_SIZE,center.y-World.HALF_BLOCK_SIZE,center.z+World.HALF_BLOCK_SIZE);
+        p1.set(center.x+World.HALF_BLOCK_SIZE,center.y-World.HALF_BLOCK_SIZE,center.z+World.HALF_BLOCK_SIZE);
+        p2.set(center.x+World.HALF_BLOCK_SIZE,center.y+World.HALF_BLOCK_SIZE,center.z+World.HALF_BLOCK_SIZE);
+        p3.set(center.x-World.HALF_BLOCK_SIZE,center.y+World.HALF_BLOCK_SIZE,center.z+World.HALF_BLOCK_SIZE);
         
-        p4.set(center.x-World.CHUNK_HALF_BLOCK_SIZE,center.y-World.CHUNK_HALF_BLOCK_SIZE,center.z-World.CHUNK_HALF_BLOCK_SIZE);
-        p5.set(center.x+World.CHUNK_HALF_BLOCK_SIZE,center.y-World.CHUNK_HALF_BLOCK_SIZE,center.z-World.CHUNK_HALF_BLOCK_SIZE);
-        p6.set(center.x+World.CHUNK_HALF_BLOCK_SIZE,center.y+World.CHUNK_HALF_BLOCK_SIZE,center.z-World.CHUNK_HALF_BLOCK_SIZE);
-        p7.set(center.x-World.CHUNK_HALF_BLOCK_SIZE,center.y+World.CHUNK_HALF_BLOCK_SIZE,center.z-World.CHUNK_HALF_BLOCK_SIZE);        
+        p4.set(center.x-World.HALF_BLOCK_SIZE,center.y-World.HALF_BLOCK_SIZE,center.z-World.HALF_BLOCK_SIZE);
+        p5.set(center.x+World.HALF_BLOCK_SIZE,center.y-World.HALF_BLOCK_SIZE,center.z-World.HALF_BLOCK_SIZE);
+        p6.set(center.x+World.HALF_BLOCK_SIZE,center.y+World.HALF_BLOCK_SIZE,center.z-World.HALF_BLOCK_SIZE);
+        p7.set(center.x-World.HALF_BLOCK_SIZE,center.y+World.HALF_BLOCK_SIZE,center.z-World.HALF_BLOCK_SIZE);        
         
         addQuad(p0,p1,p2,p3); // front
         addQuad(p1,p5,p6,p2); // right

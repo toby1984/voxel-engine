@@ -14,7 +14,7 @@ public class Player
     /**
      * Height of player's bounding box (player footprint is always one block).
      */
-    public static float PLAYER_HEIGHT = 1.5f*World.CHUNK_BLOCK_SIZE;
+    public static float PLAYER_HEIGHT = 1.5f*World.BLOCK_SIZE;
     public static float MAX_VELOCITY= 5f;
     
     private final Vector3 feetPosition2 = new Vector3();
@@ -129,7 +129,7 @@ public class Player
         
         blockType = feetChunk.getBlockType( feetChunk.blockIndex( feetPosition ) );
         if ( blockType != BlockType.BLOCKTYPE_AIR ) { // feet are blocked, move up
-            final float blockTopY = feetChunk.center.y - World.CHUNK_HALF_WIDTH + block.y * World.CHUNK_BLOCK_SIZE;
+            final float blockTopY = feetChunk.center.y - World.CHUNK_HALF_WIDTH + block.y * World.BLOCK_SIZE;
             float deltaY = Math.abs( feetPosition.y - blockTopY );
             if ( deltaY > 0.05f) {
                 headPosition.y += delta * COLLISION_Y_ADJUST;
@@ -159,7 +159,7 @@ public class Player
         { 
             // solid block, make sure we're standing right on the top surface
             // TODO: Adjust Y gradually.
-            final float blockTopY = feetChunk.center.y - World.CHUNK_HALF_WIDTH + block.y * World.CHUNK_BLOCK_SIZE;
+            final float blockTopY = feetChunk.center.y - World.CHUNK_HALF_WIDTH + block.y * World.BLOCK_SIZE;
             if ( feetPosition.y != blockTopY ) {
                 feetPosition.y = blockTopY;
                 playerTranslated=true;

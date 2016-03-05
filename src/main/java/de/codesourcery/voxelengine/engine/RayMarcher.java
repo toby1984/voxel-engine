@@ -8,7 +8,7 @@ import de.codesourcery.voxelengine.model.World;
 
 public class RayMarcher {
 
-    private static final float STEP_INC = World.CHUNK_HALF_BLOCK_SIZE;
+    private static final float STEP_INC = World.HALF_BLOCK_SIZE;
     
     public final Vector3 currentPoint = new Vector3();
     

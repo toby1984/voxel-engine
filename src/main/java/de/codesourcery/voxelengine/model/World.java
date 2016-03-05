@@ -12,13 +12,31 @@ import de.codesourcery.voxelengine.engine.ShaderManager;
 
 public class World implements Disposable
 {
+    /**
+     * Width/heigh/depth of a chunk in blocks.
+     */
     public static final int CHUNK_SIZE = 32;
     
-    public static final float CHUNK_BLOCK_SIZE = 1f;
-    public static final float CHUNK_HALF_BLOCK_SIZE = CHUNK_BLOCK_SIZE/2f;
+    /**
+     * Size of a block in world coordinates.
+     */
+    public static final float BLOCK_SIZE = 1f;
+    public static final float HALF_BLOCK_SIZE = BLOCK_SIZE/2f;
     
-    public static final float CHUNK_WIDTH = CHUNK_BLOCK_SIZE*CHUNK_SIZE;
+    /**
+     * width/height/depth of chunk in world space.
+     */
+    public static final float CHUNK_WIDTH = BLOCK_SIZE*CHUNK_SIZE;
+    
+    /**
+     * Half width/height/depth of chunk in world space.
+     */    
     public static final float CHUNK_HALF_WIDTH = CHUNK_WIDTH/2f;
+    
+    /**
+     * Radius of a sphere that encloses a chunk (used when culling against view frustum).
+     */
+    public static final float CHUNK_ENCLOSING_SPHERE_RADIUS = (float) Math.sqrt( 3*CHUNK_HALF_WIDTH*CHUNK_HALF_WIDTH); // sqrt( dx*dx +dy*dy +dz*dz )
     
     public final ChunkManager chunkManager;
     

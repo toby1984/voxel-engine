@@ -138,7 +138,7 @@ public class ChunkFile
         if ( totalChunkSize != World.CHUNK_SIZE ) {
             throw new RuntimeException("Internal error, file has incompatible chunk size "+totalChunkSize);
         }
-        if ( blockSize != World.CHUNK_BLOCK_SIZE ) {
+        if ( blockSize != World.BLOCK_SIZE ) {
             throw new RuntimeException("Internal error, file has incompatible chunk block size "+blockSize);
         }        
         final int flags = s.readInt();
@@ -168,7 +168,7 @@ public class ChunkFile
 
     private static void setPayload(SegmentWriter writer,Chunk chunk) throws IOException {
         writer.writeInt( World.CHUNK_SIZE );
-        writer.writeFloat( World.CHUNK_BLOCK_SIZE );
+        writer.writeFloat( World.BLOCK_SIZE );
         writer.writeInt( chunk.flags & ~Chunk.FLAG_NEEDS_SAVE );
         writer.writeIntArray( chunk.blockTypes );
         writer.writeInt( chunk.chunkKey.x );

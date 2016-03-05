@@ -57,7 +57,8 @@ public class WorldRenderer
     // the player instance
     private final Player player;
     
-    private int visibleChunkCount=0; // TODO: Debug code, remove
+    public int visibleChunkCount=0; // TODO: Debug code, remove
+    public int totalTriangles=0; // TODO: Debug code, remove
 
     // float[] array to use when meshing a chunk
     private final VertexDataBuffer vertexBuffer = new VertexDataBuffer();
@@ -82,16 +83,6 @@ public class WorldRenderer
     }
 
     /**
-     * Returns the number of chunks that actually intersect with the view frustum.
-     * 
-     * TODO: Debug code, remove when done     
-     * @return
-     */
-    public int getVisibleChunkCount() {
-        return visibleChunkCount;
-    }
-
-    /**
      * Render the world.
      * 
      * @param deltaTime Delta time (seconds) to previous frame
@@ -99,8 +90,6 @@ public class WorldRenderer
     public void render(float deltaTime) 
     {
         final PerspectiveCamera camera = world.camera;
-
-        final boolean doLog = LOG.isTraceEnabled(); // (frameCounter% 300) == 0;
 
         final long centerChunkID = player.cameraChunkID;
 
@@ -143,16 +132,17 @@ public class WorldRenderer
                     final float py = y * World.CHUNK_WIDTH;
                     for ( int z = zmin ; z <= zmax ; z++ ) 
                     {
-                        final boolean borderZ = ( z == zmin ) || (z == zmax);
                         final long chunkID = ChunkKey.toID( x , y , z );
                         if ( ! loadedChunks.containsKey( chunkID ) ) 
                         {
                             toLoad.add( chunkID );
                         }                     
+                        final boolean borderZ = ( z == zmin ) || (z == zmax);
                         if ( ! ( borderX || borderY || borderZ ) ) 
                         {
                             final float pz = z * World.CHUNK_WIDTH;
-                            if ( intersectsSphere(f,px,py,pz,World.CHUNK_HALF_WIDTH) ) 
+                            // TODO: Culling against enclosing sphere selects way more chunks than necessary...maybe use AABB instead ?
+                            if ( intersectsSphere(f,px,py,pz,World.CHUNK_ENCLOSING_SPHERE_RADIUS) ) 
                             { 
                                 visibleChunks.put( chunkID , DUMMY_VALUE );
                             }
@@ -198,7 +188,7 @@ public class WorldRenderer
         else 
         {
             // camera is still within the same chunk, just determine the visible chunks
-            // , all chunks in view distance have already been loaded
+            // since all chunks within view distance have already been loaded
             final Frustum f = world.camera.frustum;
 
             final int xmin = centerChunk.x - RENDER_DISTANCE_CHUNKS;
@@ -222,8 +212,8 @@ public class WorldRenderer
                         if ( ! ( borderX || borderY || borderZ ) ) 
                         {
                             final float pz = z * World.CHUNK_WIDTH;
-                            if ( intersectsSphere(f,px,py,pz,World.CHUNK_HALF_WIDTH) ) 
-                            { 
+                            // TODO: Culling against enclosing sphere selects way more chunks than necessary...maybe use AABB instead ? 
+                            if ( intersectsSphere(f,px,py,pz,World.CHUNK_ENCLOSING_SPHERE_RADIUS) ) { 
                                 visibleChunks.put( ChunkKey.toID( x, y, z ) ,DUMMY_VALUE );
                             }
                         }
@@ -274,13 +264,11 @@ public class WorldRenderer
                         throw e;
                     }
                 }                
-                totalTriangles += chunk.renderer.render( chunkShader , doLog );
+                totalTriangles += chunk.renderer.render( chunkShader , false );
             }
         }
+        this.totalTriangles = totalTriangles;
         chunkShader.end();        
-        if ( doLog ) {
-            LOG.trace("render(): Total triangles: "+totalTriangles);
-        }
     }
 
     private static boolean intersectsSphere(Frustum f,float x,float y,float z,float radius) 

@@ -200,7 +200,7 @@ public class ApplicationMain implements ApplicationListener {
 
         rayMarcher.distance = 0;
 
-        for ( ; rayMarcher.distance < 10*World.CHUNK_BLOCK_SIZE ; rayMarcher.advance() ) { // only try to find selection at most 10 blocks away
+        for ( ; rayMarcher.distance < 10*World.BLOCK_SIZE ; rayMarcher.advance() ) { // only try to find selection at most 10 blocks away
 
             Chunk chunk = chunkManager.getChunk( rayMarcher.chunkID );
 
@@ -314,16 +314,16 @@ public class ApplicationMain implements ApplicationListener {
         font.draw(spriteBatch, append("Player feet pos: ",world.player.feetPosition()) , 10, y );
 
         y -= fontHeight;
-        font.draw(spriteBatch, append("Player head pos: ",world.camera.position), 10, y );        
-
-        y -= fontHeight;
         font.draw(spriteBatch, append("Player direction: ",world.camera.direction), 10, y );
 
         y -= fontHeight;
         font.draw(spriteBatch, append("Loaded chunks: ",worldRenderer.getLoadedChunkCount()), 10, y );       
 
         y -= fontHeight;
-        font.draw(spriteBatch, append("Visible chunks: ",worldRenderer.getVisibleChunkCount()), 10, y );   
+        font.draw(spriteBatch, append("Visible chunks: ",worldRenderer.visibleChunkCount), 10, y );   
+        
+        y -= fontHeight;
+        font.draw(spriteBatch, append("Total triangles: ",worldRenderer.totalTriangles), 10, y );  
         
         y -= fontHeight;
         if ( world.selectedBlock.hasSelection() ) 

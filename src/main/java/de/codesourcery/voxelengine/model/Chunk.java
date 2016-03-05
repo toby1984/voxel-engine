@@ -89,7 +89,7 @@ public class Chunk implements Disposable
      */
     public final BoundingBox boundingBox;
     
-     // Chunk neighbours in right-handed coordinate system (looking along the -z axis).
+     // Chunk neighbours (front/back refer to right-handed coordinate system when looking along the -z axis).
     public Chunk leftNeighbour;
     public Chunk rightNeighbour;
     public Chunk topNeighbour;
@@ -465,9 +465,9 @@ public class Chunk implements Disposable
      */
     public int blockIndex(Vector3 worldCoords) 
     {
-        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
-        final int by = (int) Math.floor( (worldCoords.y - center.y + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
-        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
+        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
+        final int by = (int) Math.floor( (worldCoords.y - center.y + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
+        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
         if ( bx < 0 || by < 0 || bz < 0 || bx >= World.CHUNK_SIZE || by >= World.CHUNK_SIZE || bz >= World.CHUNK_SIZE ) {
             throw new RuntimeException("Internal error, world coordinates "+worldCoords+" maps to ("+bx+","+by+","+bz+") in chunk "+chunkKey+" @ center "+center);
         }
@@ -495,9 +495,9 @@ public class Chunk implements Disposable
      */    
     public BlockKey getBlockKey( Vector3 worldCoords , BlockKey result ) 
     {
-        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
-        final int by = (int) Math.floor( (worldCoords.y - center.y + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
-        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
+        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
+        final int by = (int) Math.floor( (worldCoords.y - center.y + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
+        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
         if ( bx < 0 || by < 0 || bz < 0 || bx >= World.CHUNK_SIZE || by >= World.CHUNK_SIZE || bz >= World.CHUNK_SIZE ) {
             throw new RuntimeException("Internal error, world coordinates "+worldCoords+" maps to ("+bx+","+by+","+bz+") in chunk "+chunkKey+" @ center "+center);
         }
@@ -538,9 +538,9 @@ public class Chunk implements Disposable
      */
     public Vector3 getBlockCenter(int blockX,int blockY,int blockZ,Vector3 result) 
     {
-        result.x = (blockX*World.CHUNK_BLOCK_SIZE ) + center.x - World.CHUNK_HALF_WIDTH;
-        result.y = (blockY*World.CHUNK_BLOCK_SIZE ) + center.y - World.CHUNK_HALF_WIDTH;
-        result.z = (blockZ*World.CHUNK_BLOCK_SIZE ) + center.z - World.CHUNK_HALF_WIDTH;
+        result.x = (blockX*World.BLOCK_SIZE ) + center.x - World.CHUNK_HALF_WIDTH;
+        result.y = (blockY*World.BLOCK_SIZE ) + center.y - World.CHUNK_HALF_WIDTH;
+        result.z = (blockZ*World.BLOCK_SIZE ) + center.z - World.CHUNK_HALF_WIDTH;
         return result;
     }
     

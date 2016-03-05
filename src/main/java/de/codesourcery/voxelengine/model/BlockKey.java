@@ -261,9 +261,9 @@ public final class BlockKey
     public static BlockKey getBlockKey( long chunkID , Vector3 worldCoords , BlockKey result ) 
     {
         final Vector3 center = ChunkKey.getChunkCenter( chunkID , TMP );
-        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
-        final int by = (int) Math.floor( (worldCoords.y - center.y + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
-        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
+        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
+        final int by = (int) Math.floor( (worldCoords.y - center.y + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
+        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
         if ( bx < 0 || by < 0 || bz < 0 || bx >= World.CHUNK_SIZE || by >= World.CHUNK_SIZE || bz >= World.CHUNK_SIZE ) {
             throw new RuntimeException("Internal error, world coordinates "+worldCoords+" maps to ("+bx+","+by+","+bz+") in chunk "+ChunkKey.fromID( chunkID )+" @ center "+center);
         }
@@ -282,9 +282,9 @@ public final class BlockKey
     public static int getBlockID( long chunkID , Vector3 worldCoords ) 
     {
         final Vector3 center = ChunkKey.getChunkCenter( chunkID , TMP );
-        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
-        final int by = (int) Math.floor( (worldCoords.y - center.y + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
-        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.CHUNK_HALF_WIDTH) / World.CHUNK_BLOCK_SIZE );
+        final int bx = (int) Math.floor( (worldCoords.x - center.x + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
+        final int by = (int) Math.floor( (worldCoords.y - center.y + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
+        final int bz = (int) Math.floor( (worldCoords.z - center.z + World.CHUNK_HALF_WIDTH) / World.BLOCK_SIZE );
         if ( bx < 0 || by < 0 || bz < 0 || bx >= World.CHUNK_SIZE || by >= World.CHUNK_SIZE || bz >= World.CHUNK_SIZE ) {
             throw new RuntimeException("Internal error, world coordinates "+worldCoords+" maps to ("+bx+","+by+","+bz+") in chunk "+ChunkKey.fromID( chunkID )+" @ center "+center);
         }
@@ -303,9 +303,9 @@ public final class BlockKey
     public static Vector3 getBlockCenter(long chunkID, int blockX,int blockY,int blockZ,Vector3 result) 
     {
         final Vector3 center = ChunkKey.getChunkCenter(chunkID,TMP); 
-        result.x = (blockX*World.CHUNK_BLOCK_SIZE ) + center.x - World.CHUNK_HALF_WIDTH;
-        result.y = (blockY*World.CHUNK_BLOCK_SIZE ) + center.y - World.CHUNK_HALF_WIDTH;
-        result.z = (blockZ*World.CHUNK_BLOCK_SIZE ) + center.z - World.CHUNK_HALF_WIDTH;
+        result.x = (blockX*World.BLOCK_SIZE ) + center.x - World.CHUNK_HALF_WIDTH;
+        result.y = (blockY*World.BLOCK_SIZE ) + center.y - World.CHUNK_HALF_WIDTH;
+        result.z = (blockZ*World.BLOCK_SIZE ) + center.z - World.CHUNK_HALF_WIDTH;
         return result;
     }    
     
@@ -325,9 +325,9 @@ public final class BlockKey
         final int blockX = getX(blockID);
         final int blockY = getY(blockID);
         final int blockZ = getZ(blockID);
-        result.x = (blockX*World.CHUNK_BLOCK_SIZE ) + center.x - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
-        result.y = (blockY*World.CHUNK_BLOCK_SIZE ) + center.y - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
-        result.z = (blockZ*World.CHUNK_BLOCK_SIZE ) + center.z - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
+        result.x = (blockX*World.BLOCK_SIZE ) + center.x - World.CHUNK_HALF_WIDTH + World.HALF_BLOCK_SIZE;
+        result.y = (blockY*World.BLOCK_SIZE ) + center.y - World.CHUNK_HALF_WIDTH + World.HALF_BLOCK_SIZE;
+        result.z = (blockZ*World.BLOCK_SIZE ) + center.z - World.CHUNK_HALF_WIDTH + World.HALF_BLOCK_SIZE;
         return result;
     }
     
@@ -344,9 +344,9 @@ public final class BlockKey
     {
         final Vector3 center = ChunkKey.getChunkCenter(chunk,TMP); 
         
-        result.x = (blockX*World.CHUNK_BLOCK_SIZE ) + center.x - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
-        result.y = (blockY*World.CHUNK_BLOCK_SIZE ) + center.y - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
-        result.z = (blockZ*World.CHUNK_BLOCK_SIZE ) + center.z - World.CHUNK_HALF_WIDTH + World.CHUNK_HALF_BLOCK_SIZE;
+        result.x = (blockX*World.BLOCK_SIZE ) + center.x - World.CHUNK_HALF_WIDTH + World.HALF_BLOCK_SIZE;
+        result.y = (blockY*World.BLOCK_SIZE ) + center.y - World.CHUNK_HALF_WIDTH + World.HALF_BLOCK_SIZE;
+        result.z = (blockZ*World.BLOCK_SIZE ) + center.z - World.CHUNK_HALF_WIDTH + World.HALF_BLOCK_SIZE;
         return result;
     }     
 }

@@ -139,30 +139,29 @@ public class TaskScheduler implements Disposable
 
     public void add(Task task) 
     {
-        task.perform();
-//        switch( task.priority ) 
-//        {
-//            case HI:
-//                synchronized( QUEUE_LOCK ) 
-//                {
-//                    hiPrioQueue.add( task );
-//                    QUEUE_LOCK.notifyAll();
-//                }
-//                break;
-//            case LO:
-//                synchronized( QUEUE_LOCK ) {
-//                    loPrioQueue.add( task );
-//                    QUEUE_LOCK.notifyAll();
-//                }                
-//                break;
-//            case RENDER:
-//                synchronized( RENDER_QUEUE_LOCK ) {
-//                    renderQueue.add( task );
-//                }
-//                break;
-//            default:
-//                break;
-//        }
+        switch( task.priority ) 
+        {
+            case HI:
+                synchronized( QUEUE_LOCK ) 
+                {
+                    hiPrioQueue.add( task );
+                    QUEUE_LOCK.notifyAll();
+                }
+                break;
+            case LO:
+                synchronized( QUEUE_LOCK ) {
+                    loPrioQueue.add( task );
+                    QUEUE_LOCK.notifyAll();
+                }                
+                break;
+            case RENDER:
+                synchronized( RENDER_QUEUE_LOCK ) {
+                    renderQueue.add( task );
+                }
+                break;
+            default:
+                break;
+        }
     }
 
 //    public void add(List<Task> tasks) 

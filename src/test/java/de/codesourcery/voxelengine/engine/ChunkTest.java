@@ -67,12 +67,12 @@ public class ChunkTest extends TestCase {
     public void testWorldToBlock2() 
     {
         final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
-        final BlockKey blockKey = chunk.getBlockKey( new Vector3(World.CHUNK_BLOCK_SIZE,0,0) );
+        final BlockKey blockKey = chunk.getBlockKey( new Vector3(World.BLOCK_SIZE,0,0) );
         assertEquals( 17 , blockKey.x );
         assertEquals( 16 , blockKey.y );
         assertEquals( 16 , blockKey.z );
         final Vector3 blockCenter = chunk.getBlockCenter( blockKey );
-        assertEquals( new Vector3(World.CHUNK_BLOCK_SIZE,0,0) , blockCenter );
+        assertEquals( new Vector3(World.BLOCK_SIZE,0,0) , blockCenter );
     }   
     
     public void testWorldToBlock3() 
@@ -111,7 +111,7 @@ public class ChunkTest extends TestCase {
     public void testWorldToBlock6() 
     {
         final Chunk chunk = new Chunk( new ChunkKey(0,0, 0) );
-        final Vector3 worldCoords = new Vector3(0,0, -World.CHUNK_BLOCK_SIZE );
+        final Vector3 worldCoords = new Vector3(0,0, -World.BLOCK_SIZE );
         final BlockKey blockKey = chunk.getBlockKey( worldCoords );
         assertEquals( 16 , blockKey.x );
         assertEquals( 16 , blockKey.y );
