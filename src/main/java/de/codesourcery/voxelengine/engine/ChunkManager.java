@@ -125,12 +125,27 @@ public class ChunkManager implements Disposable
         if ( --cleanCount < 0 ) 
         {
             final boolean debug = LOG.isDebugEnabled();
+            List<Chunk> toRemove = null;
             final Values<Chunk> values = chunks.values();
             while( values.hasNext )
             {
+                // hint: cannot remove chunks directly in this loop
+                // since will make the Values<> iterator fail
                 final Chunk chunk = values.next();
                 if ( chunk.isDisposed() ) 
                 {
+                    if ( toRemove == null ) 
+                    {
+                        toRemove = new ArrayList<>( 100 );
+                    }
+                    toRemove.add( chunk );
+                }
+            }
+            if ( toRemove != null ) 
+            {
+                for ( int i = 0 ; i < toRemove.size() ; i++ ) 
+                {
+                    final Chunk chunk = toRemove.get(i);
                     if ( debug ) {
                         LOG.info("removeDisposedChunks(): Removing disposed chunk: "+chunk);
                     }                    

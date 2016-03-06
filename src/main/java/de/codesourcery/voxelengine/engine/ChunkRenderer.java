@@ -33,7 +33,7 @@ public class ChunkRenderer implements Disposable
     private static final int SIDE_BOTTOM = 5;
 
     // TODO: Test code with fixed colors, remove when done
-    private static final float[] COLOR_SOLID_1 = new float[] { 0.9f , 0.9f , 0.9f , 1 }; // r,g,b,a
+    private static final float[] COLOR_SOLID_1 = new float[] { 0f , 0.5f , 0f , 1 }; // r,g,b,a
     private static final float[] COLOR_SOLID_2 = new float[] { 0 , 1 , 0 , 1 }; // r,g,b,a
 
     private static final VertexAttribute ATTR_POSITION = new VertexAttribute( Usage.Position , 3 , "v_position" ); 
@@ -125,24 +125,30 @@ public class ChunkRenderer implements Disposable
                     final int blockIndex = Chunk.blockIndex(x,y,z);
                     if ( chunk.isBlockNotEmpty( blockIndex ) ) // only render non-empty blocks
                     {
-                        final float lightLevel =  chunk.lightLevels[blockIndex] / (float) Chunk.LIGHTLEVEL_MAX;
-                        if ( hasNoBackNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex , bx , by , bz , SIDE_BACK , halfBlockSize , lightLevel );
+                        if ( hasNoBackNeighbour( x , y , z ) ) 
+                        {
+                            final float lightLevel = z == 0 ? chunk.backNeighbour.getLightLevel( x , y , World.CHUNK_SIZE-1 ) : chunk.getLightLevel( x , y , z-1 ); 
+                            addQuad( blockIndex , bx , by , bz , SIDE_BACK , halfBlockSize , lightLevel  );
                         }
                         if ( hasNoFrontNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex ,bx , by , bz , SIDE_FRONT , halfBlockSize , lightLevel);
+                            final float lightLevel = z == World.CHUNK_SIZE-1 ? chunk.frontNeighbour.getLightLevel( x , y , 0 ) : chunk.getLightLevel( x , y , z+1 ); 
+                            addQuad( blockIndex ,bx , by , bz , SIDE_FRONT , halfBlockSize , lightLevel );
                         }
                         if ( hasNoLeftNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex ,bx , by , bz , SIDE_LEFT , halfBlockSize , lightLevel);
+                            final float lightLevel = x == 0 ? chunk.leftNeighbour.getLightLevel( World.CHUNK_SIZE-1  , y , z ) : chunk.getLightLevel( x-1 , y , z ); 
+                            addQuad( blockIndex ,bx , by , bz , SIDE_LEFT , halfBlockSize , lightLevel );
                         }
                         if ( hasNoRightNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex ,bx , by , bz , SIDE_RIGHT , halfBlockSize , lightLevel);
+                            final float lightLevel = x == World.CHUNK_SIZE-1 ? chunk.rightNeighbour.getLightLevel( 0  , y , z ) : chunk.getLightLevel( x+1 , y , z ); 
+                            addQuad( blockIndex ,bx , by , bz , SIDE_RIGHT , halfBlockSize , lightLevel );
                         }
                         if ( hasNoTopNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex ,bx , by , bz , SIDE_TOP , halfBlockSize , lightLevel);
+                            final float lightLevel = y == World.CHUNK_SIZE-1 ? chunk.topNeighbour.getLightLevel( x  , 0 , z ) : chunk.getLightLevel( x , y+1 , z ); 
+                            addQuad( blockIndex ,bx , by , bz , SIDE_TOP , halfBlockSize , lightLevel );
                         }
                         if ( hasNoBottomNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex ,bx , by , bz , SIDE_BOTTOM , halfBlockSize , lightLevel);
+                            final float lightLevel = y == 0 ? chunk.bottomNeighbour.getLightLevel( x  , World.CHUNK_SIZE-1 , z ) : chunk.getLightLevel( x , y-1 , z ); 
+                            addQuad( blockIndex ,bx , by , bz , SIDE_BOTTOM , halfBlockSize , lightLevel );
                         }
                     }
                 }

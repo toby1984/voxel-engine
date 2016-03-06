@@ -32,6 +32,6 @@ void main()
    v_lightDir = normalize(lightPos.xyz - eyeVertex.xyz);
    
    gl_Position =  u_modelViewProjection * v_position;
-   colorOut.rgb = v_lightLevel * v_color.rgb;
+   colorOut.rgb = (v_lightLevel/15) * v_color.rgb; // Divide by MAX LIGHT LEVEL !!!!
    colorOut.a = v_color.a;
 }

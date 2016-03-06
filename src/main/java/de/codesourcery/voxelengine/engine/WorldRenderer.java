@@ -334,7 +334,9 @@ public class WorldRenderer implements Disposable
     {
         System.out.println("Lighting chunk "+chunk.chunkKey);
 
-        // set all blocks to 'darkness'
+        // set all blocks to be 'dark'
+        // TODO: This applies to opaque and non-opaque blocks all the same,
+        // TODO: needs to be changed when introducing light emitting blocks (these blocks need to keep their light levels) !!!
         chunk.setLightLevel( (byte) 0 );
 
         // light top->down blocks
@@ -342,17 +344,18 @@ public class WorldRenderer implements Disposable
         {
             for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
             {
-                final byte lightLevel = chunk.topNeighbour == null ? Chunk.LIGHTLEVEL_SUNLIGHT : chunk.topNeighbour.getLightLevel(x,0,z);
-                chunk.setLightLevel( x , World.CHUNK_SIZE-1 , z , lightLevel );
-                if ( chunk.isBlockEmpty( x , World.CHUNK_SIZE-2 , z ) ) 
+                if ( chunk.isBlockEmpty(x,World.CHUNK_SIZE-1,z) ) 
                 {
+                    final byte lightLevel = chunk.topNeighbour == null ? Chunk.LIGHTLEVEL_SUNLIGHT : chunk.topNeighbour.getLightLevel(x,0,z);
+                    chunk.setLightLevel( x , World.CHUNK_SIZE-1 , z , lightLevel );
                     for ( int y = World.CHUNK_SIZE-2 ; y >= 0 ; y --) 
                     {
-                        chunk.setLightLevel( x , y , z , lightLevel );
-                        if ( chunk.isBlockNotEmpty( x , y , z ) ) 
+                        final int blockIndex = Chunk.blockIndex( x , y , z );
+                        if ( chunk.isBlockNotEmpty( blockIndex ) ) 
                         {
                             break;
                         }
+                        chunk.setLightLevel( blockIndex , lightLevel );
                     }       
                 }
             }                        
@@ -371,13 +374,17 @@ public class WorldRenderer implements Disposable
             {
                 for ( int z = 0 ; z < World.CHUNK_SIZE ; z++) 
                 {
-                    byte lightlevel = chunk.getLightLevel( x ,  y ,  z );
-                    if ( lightlevel == 0 ) 
+                    final int blockIndex = Chunk.blockIndex( x , y , z );
+                    if ( chunk.isBlockEmpty( blockIndex ) ) 
                     {
-                        tmp.set(x,y,z);
-                        final byte newLevel = chunk.calcNeighbourLightLevel( tmp );
-                        if ( newLevel >= 1 ) {
-                            chunk.setLightLevel( x , y , z , (byte) (newLevel-1) );
+                        byte lightlevel = chunk.getLightLevel( blockIndex );
+                        if ( lightlevel == 0 ) 
+                        {
+                            tmp.set(x,y,z);
+                            final byte newLevel = chunk.calcNeighbourLightLevel( tmp );
+                            if ( newLevel >= 2 ) {
+                                chunk.setLightLevel( blockIndex , (byte) (newLevel-2) );
+                            }
                         }
                     }
                 }

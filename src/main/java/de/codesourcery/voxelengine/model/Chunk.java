@@ -53,7 +53,8 @@ public class Chunk implements Disposable
      */
     public static final int FLAG_SUNLIGHT_CALCULATED = 1<<4;    
     
-    public static final byte LIGHTLEVEL_MAX = 15;
+    public static final byte LIGHTLEVEL_MAX = 15; // !!!! Make sure to adjust phong shader when changing the maximum value !!!!
+    
     public static final byte LIGHTLEVEL_SUNLIGHT = 15;
     
     /**
@@ -206,6 +207,11 @@ public class Chunk implements Disposable
         return lightLevels[ blockIndex(x, y, z ) ];
     }
     
+    public byte getLightLevel(int blockIndex) 
+    {
+        return lightLevels[ blockIndex ];
+    }    
+    
     /**
      * Calculates the average light level of this block
      * based on the light level of its adjacent blocks.
@@ -327,6 +333,11 @@ public class Chunk implements Disposable
     {
         lightLevels[ blockIndex(x, y, z ) ] = level;
     }    
+    
+    public void setLightLevel(int blockIndex,byte level) 
+    {
+        lightLevels[ blockIndex ] = level;
+    }     
     
     /**
      * Returns whether a point is contained in this chunk.
