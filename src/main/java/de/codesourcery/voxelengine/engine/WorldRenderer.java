@@ -1,6 +1,8 @@
 package de.codesourcery.voxelengine.engine;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 import org.apache.commons.lang3.Validate;
@@ -15,8 +17,9 @@ import com.badlogic.gdx.math.Plane;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.LongMap;
 import com.badlogic.gdx.utils.LongMap.Entries;
-import com.badlogic.gdx.utils.LongMap.Keys;
 
+import de.codesourcery.voxelengine.model.BlockKey;
+import de.codesourcery.voxelengine.model.BlockType;
 import de.codesourcery.voxelengine.model.Chunk;
 import de.codesourcery.voxelengine.model.ChunkKey;
 import de.codesourcery.voxelengine.model.Player;
@@ -31,13 +34,16 @@ public class WorldRenderer implements Disposable
 {
     private static final Logger LOG = Logger.getLogger(WorldRenderer.class);
 
+
     // dummy value used when abusing a Map as a Set
     private static final Long DUMMY_VALUE = new Long(3L);
 
     public static final int RENDER_DISTANCE_CHUNKS = 3;
-    
+
+    private static final int MAX_CHUNKS_TO_LOAD = (2*RENDER_DISTANCE_CHUNKS+1)*(2*RENDER_DISTANCE_CHUNKS+1)*(2*RENDER_DISTANCE_CHUNKS+1);
+
     public static final boolean CULL_FACES = true;
-    
+
     public static final boolean DEPTH_BUFFER = true;    
 
     // Debug renderer
@@ -49,21 +55,34 @@ public class WorldRenderer implements Disposable
     private long previousChunkID=ChunkKey.INVALID;
 
     // TODO: This map should really be just a Set but libgdx doesn't provide this
-    private final LongMap<Long> visibleChunks = new LongMap<>(100); // populated with the chunk IDs of all chunks that intersect the view frustum
+    private final LongMap<Chunk> visibleChunks = new LongMap<>(100); // populated with the chunk IDs of all chunks that intersect the view frustum
     private final LongMap<Chunk> loadedChunks = new LongMap<>(400); // Holds all chunks that are currently loaded because they're within view distance of the camera
+
+    private Chunk[] visibleChunkList = new Chunk[ MAX_CHUNKS_TO_LOAD ];
+    public int visibleChunkCount=0; 
+
+    // Comparator used to sort chunks in top->down (+y -> -y ) order for
+    // properly calculating the influence of sun light
+    private static final Comparator<Chunk> Y_COMPARATOR = new Comparator<Chunk>() {
+
+        @Override
+        public int compare(Chunk o1, Chunk o2) 
+        {
+            return Integer.compare( o2.chunkKey.y , o1.chunkKey.y ); 
+        }
+    }; 
 
     // shader to use for rendering chunks
     private final ShaderProgram chunkShader;
 
     // the player instance
     private final Player player;
-    
-    public int visibleChunkCount=0; // TODO: Debug code, remove
+
     public int totalTriangles=0; // TODO: Debug code, remove
 
     // float[] array to use when meshing a chunk
     private final VertexDataBuffer vertexBuffer = new VertexDataBuffer();
-    
+
     private final SkyBox skyBox;
 
     public WorldRenderer(World world,ShaderManager shaderManager) 
@@ -98,7 +117,8 @@ public class WorldRenderer implements Disposable
         final long centerChunkID = player.cameraChunkID;
 
         visibleChunks.clear();
-        visibleChunks.put( centerChunkID ,DUMMY_VALUE );
+        visibleChunks.put( centerChunkID , null );
+        int visibleChunkCount = 0;
 
         if ( previousChunkID != centerChunkID || centerChunk == null ) // player has moved to a different chunk
         {
@@ -115,7 +135,7 @@ public class WorldRenderer implements Disposable
              * the outer chunks wouldn't have their neighbours loaded and a NPE would
              * happen during mesh building when trying to access the neighbour.
              */            
-            final List<Long> toLoad = new ArrayList<>( (2*RENDER_DISTANCE_CHUNKS+1)*(2*RENDER_DISTANCE_CHUNKS+1) );
+            final List<Long> toLoad = new ArrayList<>( MAX_CHUNKS_TO_LOAD );
 
             final Frustum f = world.camera.frustum;
 
@@ -137,7 +157,8 @@ public class WorldRenderer implements Disposable
                     for ( int z = zmin ; z <= zmax ; z++ ) 
                     {
                         final long chunkID = ChunkKey.toID( x , y , z );
-                        if ( ! loadedChunks.containsKey( chunkID ) ) 
+                        final Chunk loaded = loadedChunks.get( chunkID ); 
+                        if ( loaded == null ) 
                         {
                             toLoad.add( chunkID );
                         }                     
@@ -148,7 +169,10 @@ public class WorldRenderer implements Disposable
                             // TODO: Culling against enclosing sphere selects way more chunks than necessary...maybe use AABB instead ?
                             if ( intersectsSphere(f,px,py,pz,World.CHUNK_ENCLOSING_SPHERE_RADIUS) ) 
                             { 
-                                visibleChunks.put( chunkID , DUMMY_VALUE );
+                                visibleChunks.put( chunkID , loaded );
+                                if ( loaded != null ) {
+                                    visibleChunkList[visibleChunkCount++]=loaded;
+                                }
                             }
                         }
                     }                 
@@ -183,10 +207,14 @@ public class WorldRenderer implements Disposable
                 System.out.println("*** Loading "+toLoad.size()+" chunks");
                 for ( Chunk chunk : world.chunkManager.getChunks( toLoad ) ) 
                 {
-                    loadedChunks.put( chunk.chunkKey.toID() , chunk );
+                    final long chunkID = chunk.chunkKey.toID();
+                    loadedChunks.put( chunkID , chunk );
+                    if ( visibleChunks.containsKey( chunkID ) ) {
+                        visibleChunks.put( chunkID , chunk );
+                        visibleChunkList[visibleChunkCount++]=chunk;
+                    }
                 }
             }       
-
             previousChunkID = centerChunkID;
         } 
         else 
@@ -217,21 +245,59 @@ public class WorldRenderer implements Disposable
                         {
                             final float pz = z * World.CHUNK_WIDTH;
                             // TODO: Culling against enclosing sphere selects way more chunks than necessary...maybe use AABB instead ? 
-                            if ( intersectsSphere(f,px,py,pz,World.CHUNK_ENCLOSING_SPHERE_RADIUS) ) { 
-                                visibleChunks.put( ChunkKey.toID( x, y, z ) ,DUMMY_VALUE );
+                            if ( intersectsSphere(f,px,py,pz,World.CHUNK_ENCLOSING_SPHERE_RADIUS) ) 
+                            { 
+                                final long chunkID = ChunkKey.toID( x, y, z );
+                                final Chunk chunk = loadedChunks.get( chunkID );
+                                visibleChunks.put( chunkID ,  chunk );
+                                if ( chunk != null ) {
+                                    visibleChunkList[visibleChunkCount++]=chunk;
+                                }
                             }
                         }
                     }                 
                 }            
             }
         }
+        this.visibleChunkCount = visibleChunkCount;
 
-        visibleChunkCount = visibleChunks.size;
-        
+        // sort chunks in descending Y-coordinate order
+        // before propagating sunlight from top -> bottom
+        Arrays.sort( visibleChunkList , 0 , visibleChunkCount , Y_COMPARATOR );
+
+        // calculate sunlight
+        for ( int i = 0 ; i < visibleChunkCount ; i++ ) 
+        {
+            final Chunk chunk = visibleChunkList[i];
+            if ( chunk.needsRebuild() ) 
+            {
+                if ( chunk.isNotEmpty() ) 
+                {
+                    calculateSunlight( chunk );                    
+                } else {
+                    chunk.setLightLevel( Chunk.LIGHTLEVEL_SUNLIGHT );
+                }
+            }
+        }
+
+        // calculate diffuse light & build mesh
+        for ( int i = 0 ; i < visibleChunkCount ; i++ ) 
+        {
+            final Chunk chunk = visibleChunkList[i];
+            if ( chunk.isNotEmpty() ) 
+            {
+                if ( chunk.needsRebuild() ) {
+                    calculateDiffuseLight( chunk );                    
+                    buildMesh( chunk );
+                }
+            }
+            chunk.clearFlags( Chunk.FLAG_NEEDS_REBUILD );
+        }        
+
         // render skybox 
         skyBox.render( world.camera );
-        
-         // Render
+
+        // Render visible,non-empty chunks
         if ( CULL_FACES ) {
             Gdx.gl30.glEnable( GL20.GL_CULL_FACE );
         } else {
@@ -242,7 +308,7 @@ public class WorldRenderer implements Disposable
         } else {
             Gdx.gl30.glDisable(GL20.GL_DEPTH_TEST);
         }
-        
+
         chunkShader.begin();
 
         if ( ! WorldRenderer.RENDER_WIREFRAME ) {
@@ -252,31 +318,72 @@ public class WorldRenderer implements Disposable
         chunkShader.setUniformMatrix("u_modelViewProjection", camera.combined );
 
         int totalTriangles = 0;
-
-        final Keys it = visibleChunks.keys();
-        while ( it.hasNext )
+        for ( int i = 0 ; i < visibleChunkCount ; i++ ) 
         {
-            final long key=it.next(); 
-            final Chunk chunk = loadedChunks.get(key);
+            final Chunk chunk = visibleChunkList[i];
             if ( chunk.isNotEmpty() ) 
             {
-                if ( chunk.needsRebuild() ) 
-                {
-                    try {
-                        buildMesh( chunk );
-                    } 
-                    catch(RuntimeException e) 
-                    {
-                        LOG.error("Failed to build mesh for "+chunk+" while center chunk is at "+ChunkKey.fromID( centerChunkID ) );
-                        throw e;
-                    }
-                }                
                 totalTriangles += chunk.renderer.render( chunkShader , false );
             }
         }
         this.totalTriangles = totalTriangles;
         chunkShader.end();        
     }
+
+    private void calculateSunlight(Chunk chunk) 
+    {
+        System.out.println("Lighting chunk "+chunk.chunkKey);
+
+        // set all blocks to 'darkness'
+        chunk.setLightLevel( (byte) 0 );
+
+        // light top->down blocks
+        for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
+        {
+            for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
+            {
+                final byte lightLevel = chunk.topNeighbour == null ? Chunk.LIGHTLEVEL_SUNLIGHT : chunk.topNeighbour.getLightLevel(x,0,z);
+                chunk.setLightLevel( x , World.CHUNK_SIZE-1 , z , lightLevel );
+                if ( chunk.isBlockEmpty( x , World.CHUNK_SIZE-2 , z ) ) 
+                {
+                    for ( int y = World.CHUNK_SIZE-2 ; y >= 0 ; y --) 
+                    {
+                        chunk.setLightLevel( x , y , z , lightLevel );
+                        if ( chunk.isBlockNotEmpty( x , y , z ) ) 
+                        {
+                            break;
+                        }
+                    }       
+                }
+            }                        
+        }
+    }
+
+    private void calculateDiffuseLight(Chunk chunk) 
+    {
+        // for each non-opaque block that has a light-level
+        // of 0, set it to the average lightlevel of all neighbouring
+        // blocks minus one
+        final BlockKey tmp = new BlockKey();
+        for ( int y = World.CHUNK_SIZE-1 ; y >= 0 ; y-- ) 
+        {        
+            for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
+            {
+                for ( int z = 0 ; z < World.CHUNK_SIZE ; z++) 
+                {
+                    byte lightlevel = chunk.getLightLevel( x ,  y ,  z );
+                    if ( lightlevel == 0 ) 
+                    {
+                        tmp.set(x,y,z);
+                        final byte newLevel = chunk.calcNeighbourLightLevel( tmp );
+                        if ( newLevel >= 1 ) {
+                            chunk.setLightLevel( x , y , z , (byte) (newLevel-1) );
+                        }
+                    }
+                }
+            }
+        }
+    }    
 
     private static boolean intersectsSphere(Frustum f,float x,float y,float z,float radius) 
     {
@@ -306,7 +413,7 @@ public class WorldRenderer implements Disposable
         LOG.debug("buildMesh(): Building mesh for "+chunk);
         chunk.renderer.buildMesh( chunk , vertexBuffer );
     }
-    
+
     @Override
     public void dispose() {
         skyBox.dispose();

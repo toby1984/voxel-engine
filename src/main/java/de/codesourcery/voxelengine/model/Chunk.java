@@ -49,6 +49,14 @@ public class Chunk implements Disposable
     public static final int FLAG_NEEDS_SAVE = 1<<3;
     
     /**
+     * Flag: Indicates that the influence of sunlight on this chunk has been calculated.
+     */
+    public static final int FLAG_SUNLIGHT_CALCULATED = 1<<4;    
+    
+    public static final byte LIGHTLEVEL_MAX = 15;
+    public static final byte LIGHTLEVEL_SUNLIGHT = 15;
+    
+    /**
      * Chunk key.
      */
     public final ChunkKey chunkKey;
@@ -102,6 +110,8 @@ public class Chunk implements Disposable
      */
     public final int[] blockTypes;
     
+    public final byte[] lightLevels;
+    
     @Override
     public String toString() {
         return "Chunk ("+chunkKey+"): center="+center+", flags = "+flagsToString()+" , bounds = "+boundingBox;
@@ -141,7 +151,7 @@ public class Chunk implements Disposable
      */
     public Chunk(ChunkKey key) 
     {
-        this(key,new int[ World.CHUNK_SIZE*World.CHUNK_SIZE*World.CHUNK_SIZE ] );
+        this(key,new int[ World.BLOCKS_IN_CHUNK ], new byte[ World.BLOCKS_IN_CHUNK ] );
         Arrays.fill( blockTypes , BlockType.BLOCKTYPE_AIR );
         flags |= FLAG_EMPTY;        
     }
@@ -155,7 +165,7 @@ public class Chunk implements Disposable
      * @param blockSize Size of a single voxel in world space
      * @param blockTypes array holding the type of each voxel in this chunk (number of array elements needs to be (chunkSize+2)^3 ) 
      */
-    public Chunk(ChunkKey key,int[] blockTypes) 
+    public Chunk(ChunkKey key,int[] blockTypes,byte[] lightLevels) 
     {
         if ( center == null ) {
             throw new IllegalArgumentException("Chunk center must not be NULL");
@@ -164,13 +174,159 @@ public class Chunk implements Disposable
         this.chunkKey = key;
         ChunkKey.getChunkCenter( key , this.center );
         this.blockTypes = blockTypes;
-        
+        this.lightLevels = lightLevels;
         this.boundingBox = new BoundingBox( 
                 center.cpy().sub( World.CHUNK_HALF_WIDTH , World.CHUNK_HALF_WIDTH , World.CHUNK_HALF_WIDTH ) , 
                 center.cpy().add( World.CHUNK_HALF_WIDTH , World.CHUNK_HALF_WIDTH , World.CHUNK_HALF_WIDTH ) 
         ); 
         updateIsEmptyFlag();
     }
+    
+    /**
+     * Sets all blocks to the given light level.
+     * 
+     * @param level
+     */
+    public void setLightLevel(byte level) 
+    {
+        System.out.println("Setting all blocks in "+chunkKey+" to light level "+level);
+       Arrays.fill( this.lightLevels , level ); 
+    }
+    
+    /**
+     * Returns the light level for a given block.
+     * 
+     * @param x
+     * @param y
+     * @param z
+     * @return
+     */
+    public byte getLightLevel(int x,int y,int z) 
+    {
+        return lightLevels[ blockIndex(x, y, z ) ];
+    }
+    
+    /**
+     * Calculates the average light level of this block
+     * based on the light level of its adjacent blocks.
+     * 
+     * @param x
+     * @param y
+     * @param z
+     * @return
+     */
+    public byte calcNeighbourLightLevel(BlockKey original) 
+    {
+        final BlockKey tmp = new BlockKey();
+        
+        Chunk chunk = this;
+        byte level = 0;
+        byte result = 0;
+        int neighbourCount = 0;
+        int blockIndex;
+        // top
+        if ( tmp.topOf( original ) ) {
+            chunk = this.topNeighbour;
+        }
+        blockIndex = blockIndex(tmp);
+        if ( chunk != null && chunk.isBlockEmpty( blockIndex )) 
+        {
+            level = chunk.lightLevels[ blockIndex ];
+            if ( level > result ) {
+                result = level;
+            }
+            neighbourCount++;
+        }
+        chunk = this;
+        
+        // bottom
+//        if ( tmp.bottomOf( original ) ) {
+//            chunk = this.bottomNeighbour;
+//        }
+//        blockIndex = blockIndex(tmp);
+//        if ( chunk != null && chunk.isBlockEmpty( blockIndex )) 
+//        {
+//            level = chunk.lightLevels[ blockIndex ];
+//            if ( level > result ) {
+//                result = level;
+//            }
+//            neighbourCount++;
+//        }
+//        chunk = this;        
+        
+        // left
+        if ( tmp.leftOf( original ) ) {
+            chunk = this.leftNeighbour;
+        }
+        blockIndex = blockIndex(tmp);
+        if ( chunk != null && chunk.isBlockEmpty( blockIndex ) ) 
+        {
+            level = chunk.lightLevels[ blockIndex ];
+            if ( level > result ) {
+                result = level;
+            }
+            neighbourCount++;
+        }         
+        chunk = this;         
+        
+        // right
+        if ( tmp.rightOf( original ) ) {
+            chunk = this.rightNeighbour;
+        }
+        blockIndex = blockIndex(tmp);
+        if ( chunk != null && chunk.isBlockEmpty( blockIndex )) 
+        {
+            level = chunk.lightLevels[ blockIndex ];
+            if ( level > result ) {
+                result = level;
+            }
+            neighbourCount++;
+        }    
+        chunk = this;         
+        
+        // front
+        if ( tmp.frontOf( original ) ) {
+            chunk = this.frontNeighbour;
+        }
+        blockIndex = blockIndex(tmp);
+        if ( chunk != null && chunk.isBlockEmpty( blockIndex )) 
+        {
+            level = chunk.lightLevels[ blockIndex ];
+            if ( level > result ) {
+                result = level;
+            }
+            neighbourCount++;
+        }     
+        chunk = this;         
+        
+        // back
+        if ( tmp.backOf( original ) ) {
+            chunk = this.backNeighbour;
+        }
+        blockIndex = blockIndex(tmp);
+        if ( chunk != null && chunk.isBlockEmpty( blockIndex ) ) 
+        {
+            level = chunk.lightLevels[ blockIndex ];
+            if ( level > result ) {
+                result = level;
+            }
+            neighbourCount++;
+        }          
+        return result; // neighbourCount > 0 ? (byte) (sum/neighbourCount) : (byte) 0;
+    }
+    
+    /**
+     * Sets the light level for a given block.
+     * 
+     * @param x
+     * @param y
+     * @param z
+     * @param level
+     */
+    public void setLightLevel(int x,int y,int z,byte level) 
+    {
+        lightLevels[ blockIndex(x, y, z ) ] = level;
+    }    
     
     /**
      * Returns whether a point is contained in this chunk.
@@ -342,8 +498,12 @@ public class Chunk implements Disposable
      * @param z
      * @return
      */
-    public int blockIndex(int x,int y,int z) {
+    public static int blockIndex(int x,int y,int z) {
         return x+y*World.CHUNK_SIZE + World.CHUNK_SIZE * World.CHUNK_SIZE * z;
+    }
+    
+    public static int blockIndex(BlockKey key) {
+        return key.x+key.y*World.CHUNK_SIZE + World.CHUNK_SIZE * World.CHUNK_SIZE * key.z;
     }
     
     public boolean needsSave() 
@@ -378,7 +538,7 @@ public class Chunk implements Disposable
      * @return
      */
     public boolean needsRebuild() {
-        return renderer == null || hasFlags( Chunk.FLAG_NEEDS_REBUILD ) ;
+        return hasFlags( Chunk.FLAG_NEEDS_REBUILD ) ;
     }
     
     /**
@@ -392,6 +552,11 @@ public class Chunk implements Disposable
     public boolean isBlockEmpty(int bx,int by,int bz) {
         return getBlockType( bx , by , bz ) == BlockType.BLOCKTYPE_AIR;
     }
+    
+    public boolean isBlockEmpty(int blockIndex) 
+    {
+        return blockTypes[ blockIndex ] == BlockType.BLOCKTYPE_AIR;
+    }    
     
     /**
      * Returns whether a given block in this chunk is empty.
@@ -414,6 +579,16 @@ public class Chunk implements Disposable
     public boolean isBlockNotEmpty(int bx,int by,int bz) {
         return getBlockType( bx , by , bz ) != BlockType.BLOCKTYPE_AIR;
     }  
+    
+    /**
+     * Returns whether a given block in this chunk is not empty.
+     * 
+     * @param blockIndex
+     * @return
+     */
+    public boolean isBlockNotEmpty(int blockIndex) {
+        return getBlockType( blockIndex ) != BlockType.BLOCKTYPE_AIR;
+    }     
     
     public boolean isBlockNotEmpty(BlockKey key) {
         return getBlockType( key.x , key.y , key.z ) != BlockType.BLOCKTYPE_AIR;

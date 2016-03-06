@@ -5,7 +5,7 @@ package de.codesourcery.voxelengine.model;
  *
  * @author tobias.gierke@code-sourcery.de
  */
-public interface BlockType 
+public final class BlockType 
 {
     /**
      * Block is empty.
@@ -16,4 +16,12 @@ public interface BlockType
     public static final int BLOCKTYPE_SOLID_2 = 2;
 
     public static final int MAX_BLOCK_TYPE = BLOCKTYPE_SOLID_2;
+    
+    public static boolean isSolidBlock(int bt) {
+        return bt != BlockType.BLOCKTYPE_AIR;
+    }
+    
+    public static boolean isNonSolidBlock(int bt) {
+        return bt == BlockType.BLOCKTYPE_AIR;
+    }    
 }

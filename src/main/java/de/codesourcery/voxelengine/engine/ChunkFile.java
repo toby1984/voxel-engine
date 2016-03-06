@@ -66,6 +66,8 @@ public class ChunkFile
         public Vector3 readVector3();
 
         public int[] readIntArray();
+
+        public byte[] readByteArray();
     }    
 
     public static final class LoadVisitor  
@@ -143,13 +145,14 @@ public class ChunkFile
         }        
         final int flags = s.readInt();
         final int[] blockTypes = s.readIntArray();
+        final byte[] lightLevels = s.readByteArray();
 
         final int chunkX = s.readInt();
         final int chunkY = s.readInt();
         final int chunkZ = s.readInt();
         final ChunkKey chunkKey =  new ChunkKey( chunkX ,chunkY,chunkZ ) ;
 
-        final Chunk result = new Chunk( chunkKey , blockTypes );
+        final Chunk result = new Chunk( chunkKey , blockTypes , lightLevels );
         result.flags = flags;
         return result;
     }   
@@ -171,6 +174,7 @@ public class ChunkFile
         writer.writeFloat( World.BLOCK_SIZE );
         writer.writeInt( chunk.flags & ~Chunk.FLAG_NEEDS_SAVE );
         writer.writeIntArray( chunk.blockTypes );
+        writer.writeByteArray( chunk.lightLevels );
         writer.writeInt( chunk.chunkKey.x );
         writer.writeInt( chunk.chunkKey.y );
         writer.writeInt( chunk.chunkKey.z );
@@ -259,13 +263,35 @@ public class ChunkFile
             writeVector3( value , dataBuffer ,payloadLength );
             payloadLength+=12;
         } 
+        
+        public void writeByteArray(byte[] array) 
+        {
+            maybeGrowDataBuffer( 4 + array.length ); // int<array length> + 32 bit * array.len 
+            writeByteArray( array, dataBuffer ,payloadLength );
+            payloadLength+= 4+array.length;
+        }      
+        
+        public void writeByteArray(byte[] array,byte[] buffer,int offset) 
+        {
+            writeInt( array.length , buffer ,offset );
+            System.arraycopy( array , 0 , buffer , offset+4 , array.length);
+        }          
 
         public void writeIntArray(int[] array) 
         {
             maybeGrowDataBuffer( 4 + array.length*4 ); // int<array length> + 32 bit * array.len 
             writeIntArray( array, dataBuffer ,payloadLength );
             payloadLength+= 4+array.length*4;
-        }         
+        }   
+        
+        public void writeIntArray(int[] array,byte[] buffer,int offset) 
+        {
+            writeInt( array.length , buffer ,offset );
+            for ( int i = 0 , ptr = offset+4 , len = array.length ; i < len ; i++, ptr+=4 ) 
+            {
+                writeInt( array[i] , buffer , ptr );
+            }
+        }        
 
         private void writeInt(int value,byte[] buffer,int offset) 
         {
@@ -285,15 +311,6 @@ public class ChunkFile
             writeFloat( value.y , buffer , offset+4 );
             writeFloat( value.z , buffer , offset+8 );
         }        
-
-        public void writeIntArray(int[] array,byte[] buffer,int offset) 
-        {
-            writeInt( array.length , buffer ,offset );
-            for ( int i = 0 , ptr = offset+4 , len = array.length ; i < len ; i++, ptr+=4 ) 
-            {
-                writeInt( array[i] , buffer , ptr );
-            }
-        }
 
         public void close() throws IOException {
             out.close();
@@ -357,6 +374,21 @@ public class ChunkFile
             dataReadOffset+=4;
             return result;
         }
+        
+        private int readInt(byte[] buffer,int offset) 
+        {
+            return ( (buffer[offset  ] & 0xff) << 24 ) |
+                    ( (buffer[offset+1] & 0xff) << 16 ) |
+                    ( (buffer[offset+2] & 0xff) <<  8 ) |
+                    ( (buffer[offset+3] & 0xff)       ) ;
+        }        
+        
+        private byte readByte() 
+        {
+            byte result = dataBuffer[ dataReadOffset ];
+            dataReadOffset++;
+            return result;
+        }
 
         @Override
         public float readFloat() 
@@ -373,6 +405,16 @@ public class ChunkFile
             final float z = readFloat();
             return new Vector3( x,y,z);
         }
+        
+        @Override
+        public byte[] readByteArray() {
+            final int len = readInt();
+            final byte[] result = new byte[len];
+            for ( int i=0 ; i < len ; i++ ) {
+                result[i] = readByte();
+            }
+            return result;
+        }
 
         @Override
         public int[] readIntArray() 
@@ -383,14 +425,6 @@ public class ChunkFile
                 result[i] = readInt();
             }
             return result;
-        }
-
-        private int readInt(byte[] buffer,int offset) 
-        {
-            return ( (buffer[offset  ] & 0xff) << 24 ) |
-                    ( (buffer[offset+1] & 0xff) << 16 ) |
-                    ( (buffer[offset+2] & 0xff) <<  8 ) |
-                    ( (buffer[offset+3] & 0xff)       ) ;
         }
 
         @Override

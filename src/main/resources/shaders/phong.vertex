@@ -5,6 +5,7 @@
 in vec4 v_position;
 in vec4 v_color;
 in vec3 v_normal;
+in float v_lightLevel; 
       
 // uniforms
 uniform mat4 u_modelView;
@@ -31,5 +32,6 @@ void main()
    v_lightDir = normalize(lightPos.xyz - eyeVertex.xyz);
    
    gl_Position =  u_modelViewProjection * v_position;
-   colorOut = v_color;
+   colorOut.rgb = v_lightLevel * v_color.rgb;
+   colorOut.a = v_color.a;
 }

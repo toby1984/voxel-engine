@@ -18,9 +18,18 @@ public class World implements Disposable
     public static final int CHUNK_SIZE = 32;
     
     /**
-     * Size of a block in world coordinates.
+     * Total number of blocks in a chunk.
+     */
+    public static final int BLOCKS_IN_CHUNK = World.CHUNK_SIZE*World.CHUNK_SIZE*World.CHUNK_SIZE;
+    
+    /**
+     * Size of a block in world space.
      */
     public static final float BLOCK_SIZE = 1f;
+    
+    /**
+     * Size of half a block in world space.
+     */
     public static final float HALF_BLOCK_SIZE = BLOCK_SIZE/2f;
     
     /**

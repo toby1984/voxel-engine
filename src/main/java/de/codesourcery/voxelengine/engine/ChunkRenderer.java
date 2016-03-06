@@ -39,9 +39,10 @@ public class ChunkRenderer implements Disposable
     private static final VertexAttribute ATTR_POSITION = new VertexAttribute( Usage.Position , 3 , "v_position" ); 
     private static final VertexAttribute ATTR_NORMAL = new VertexAttribute( Usage.Normal , 3 , "v_normal" );
     private static final VertexAttribute ATTR_COLOR = new VertexAttribute( Usage.ColorUnpacked , 4 , "v_color" );
+    private static final VertexAttribute ATTR_LIGHTLEVEL = new VertexAttribute( Usage.Generic , 1 , "v_lightLevel" );
 
-    public static final int VERTEX_FLOAT_SIZE = 3 + 3 + 4;
-    private static final VertexAttributes VERTEX_ATTRIBUTES = new VertexAttributes( ATTR_POSITION,ATTR_NORMAL,ATTR_COLOR );    
+    public static final int VERTEX_FLOAT_SIZE = 3 + 3 + 4 + 1;
+    private static final VertexAttributes VERTEX_ATTRIBUTES = new VertexAttributes( ATTR_POSITION,ATTR_NORMAL,ATTR_COLOR,ATTR_LIGHTLEVEL );    
 
     private static final Vector3 NORMAL_BACK    = new Vector3( 0, 0,-1);
     private static final Vector3 NORMAL_FRONT   = new Vector3( 0, 0, 1);
@@ -70,27 +71,29 @@ public class ChunkRenderer implements Disposable
         public float centerX,centerY,centerZ;
         public int side;
         public int blockIndex;
+        public float lightLevel;
 
-        public void set(int blockIndex,float centerX,float centerY,float centerZ,int side) 
+        public void set(int blockIndex,float centerX,float centerY,float centerZ,int side,float lightLevel) 
         {
             this.centerX = centerX;
             this.centerY = centerY;
             this.centerZ = centerZ;
             this.blockIndex = blockIndex;
             this.side = side;
+            this.lightLevel = lightLevel;
         }        
     }
 
-    private void addQuad(int blockIndex,float cx , float cy , float cz,int side, float halfBlockSize) 
+    private void addQuad(int blockIndex,float cx , float cy , float cz,int side, float halfBlockSize,float lightLevel) 
     {
         switch( side ) 
         {
-            case SIDE_TOP:    tmpQuad.set( blockIndex, cx , cy + halfBlockSize , cz , side ); break;
-            case SIDE_BOTTOM: tmpQuad.set( blockIndex, cx , cy - halfBlockSize , cz , side ); break;
-            case SIDE_LEFT:   tmpQuad.set( blockIndex, cx - halfBlockSize , cy , cz , side ); break;
-            case SIDE_RIGHT:  tmpQuad.set( blockIndex, cx + halfBlockSize , cy , cz , side ); break;
-            case SIDE_FRONT:  tmpQuad.set( blockIndex, cx , cy , cz + halfBlockSize , side ); break;
-            case SIDE_BACK:   tmpQuad.set( blockIndex, cx , cy , cz - halfBlockSize , side ); break;
+            case SIDE_TOP:    tmpQuad.set( blockIndex, cx , cy + halfBlockSize , cz , side , lightLevel ); break;
+            case SIDE_BOTTOM: tmpQuad.set( blockIndex, cx , cy - halfBlockSize , cz , side , lightLevel ); break;
+            case SIDE_LEFT:   tmpQuad.set( blockIndex, cx - halfBlockSize , cy , cz , side , lightLevel ); break;
+            case SIDE_RIGHT:  tmpQuad.set( blockIndex, cx + halfBlockSize , cy , cz , side , lightLevel ); break;
+            case SIDE_FRONT:  tmpQuad.set( blockIndex, cx , cy , cz + halfBlockSize , side , lightLevel ); break;
+            case SIDE_BACK:   tmpQuad.set( blockIndex, cx , cy , cz - halfBlockSize , side , lightLevel ); break;
             default:
                 throw new IllegalArgumentException("Unknown side: "+side);
         }
@@ -119,26 +122,27 @@ public class ChunkRenderer implements Disposable
                 float bz = chunk.center.z - halfWidth + halfBlockSize;
                 for ( int z = 0 ; z < chunkSize ; z++ , bz += blockSize  ) 
                 {
-                    if ( chunk.isBlockNotEmpty( x , y , z ) ) // only render non-empty blocks
+                    final int blockIndex = Chunk.blockIndex(x,y,z);
+                    if ( chunk.isBlockNotEmpty( blockIndex ) ) // only render non-empty blocks
                     {
-                        final int blockIndex = chunk.blockIndex(x,y,z);
+                        final float lightLevel =  chunk.lightLevels[blockIndex] / (float) Chunk.LIGHTLEVEL_MAX;
                         if ( hasNoBackNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex , bx , by , bz , SIDE_BACK , halfBlockSize );
+                            addQuad( blockIndex , bx , by , bz , SIDE_BACK , halfBlockSize , lightLevel );
                         }
                         if ( hasNoFrontNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex ,bx , by , bz , SIDE_FRONT , halfBlockSize );
+                            addQuad( blockIndex ,bx , by , bz , SIDE_FRONT , halfBlockSize , lightLevel);
                         }
                         if ( hasNoLeftNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex ,bx , by , bz , SIDE_LEFT , halfBlockSize );
+                            addQuad( blockIndex ,bx , by , bz , SIDE_LEFT , halfBlockSize , lightLevel);
                         }
                         if ( hasNoRightNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex ,bx , by , bz , SIDE_RIGHT , halfBlockSize );
+                            addQuad( blockIndex ,bx , by , bz , SIDE_RIGHT , halfBlockSize , lightLevel);
                         }
                         if ( hasNoTopNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex ,bx , by , bz , SIDE_TOP , halfBlockSize );
+                            addQuad( blockIndex ,bx , by , bz , SIDE_TOP , halfBlockSize , lightLevel);
                         }
                         if ( hasNoBottomNeighbour( x , y , z ) ) {
-                            addQuad( blockIndex ,bx , by , bz , SIDE_BOTTOM , halfBlockSize );
+                            addQuad( blockIndex ,bx , by , bz , SIDE_BOTTOM , halfBlockSize , lightLevel);
                         }
                     }
                 }
@@ -154,10 +158,10 @@ public class ChunkRenderer implements Disposable
         if ( vbo == null || vbo.getNumMaxVertices() < vertexCount ) 
         {
             if ( vbo != null ) {
-                LOG.info("populateVBO(): Re-allocating VBO for "+vertexCount+" vertices");
+                LOG.info("populateVBO(): Re-allocating VBO for "+vertexCount+" vertices of "+chunk);
                 vbo.dispose();
             } else {
-                LOG.info("populateVBO(): Allocating VBO for "+vertexCount+" vertices");
+                LOG.info("populateVBO(): Allocating VBO for "+vertexCount+" vertices of "+chunk);
             }
             vbo = new VertexBufferObjectWithVAO( false , vertexCount , VERTEX_ATTRIBUTES );
         }
@@ -174,7 +178,6 @@ public class ChunkRenderer implements Disposable
             }
             chunk.renderer = this;
         }
-        chunk.clearFlags( Chunk.FLAG_NEEDS_REBUILD );
     }
 
     private void addTriangle(Quad quad,float halfBlockSize) 
@@ -204,10 +207,10 @@ public class ChunkRenderer implements Disposable
                 p2.x = quad.centerX + halfBlockSize; p2.y = quad.centerY + halfBlockSize; p2.z = quad.centerZ;
                 p3.x = p2.x                        ; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ;
                 if ( WorldRenderer.RENDER_WIREFRAME ) {
-                    addQuad(p0,p1,p2,p3, NORMAL_BACK , color );
+                    addQuad(p0,p1,p2,p3, NORMAL_BACK , color , quad.lightLevel );
                 } else {
-                    addTriangle( p0 , p1 , p2 , NORMAL_BACK , color );
-                    addTriangle( p0 , p2 , p3 , NORMAL_BACK , color );
+                    addTriangle( p0 , p1 , p2 , NORMAL_BACK , color , quad.lightLevel);
+                    addTriangle( p0 , p2 , p3 , NORMAL_BACK , color , quad.lightLevel);
                 }
                 break;
             case SIDE_FRONT:   
@@ -217,10 +220,10 @@ public class ChunkRenderer implements Disposable
                 p3.x = p2.x                        ; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ;
                 
                 if ( WorldRenderer.RENDER_WIREFRAME ) {
-                    addQuad(p0,p1,p2,p3, NORMAL_FRONT , color );
+                    addQuad(p0,p1,p2,p3, NORMAL_FRONT , color , quad.lightLevel);
                 } else {
-                    addTriangle( p0 , p2 , p1 , NORMAL_FRONT , color );
-                    addTriangle( p0 , p3 , p2 , NORMAL_FRONT , color );
+                    addTriangle( p0 , p2 , p1 , NORMAL_FRONT , color , quad.lightLevel);
+                    addTriangle( p0 , p3 , p2 , NORMAL_FRONT , color , quad.lightLevel);
                 }
                 break;
             case SIDE_LEFT:    
@@ -230,10 +233,10 @@ public class ChunkRenderer implements Disposable
                 p3.x = quad.centerX ; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ + halfBlockSize;
                 
                 if ( WorldRenderer.RENDER_WIREFRAME ) {
-                    addQuad(p0,p1,p2,p3, NORMAL_LEFT , color );
+                    addQuad(p0,p1,p2,p3, NORMAL_LEFT , color , quad.lightLevel);
                 } else {
-                    addTriangle( p0 , p3 , p1 , NORMAL_LEFT , color );
-                    addTriangle( p3 , p2 , p1 , NORMAL_LEFT , color );
+                    addTriangle( p0 , p3 , p1 , NORMAL_LEFT , color , quad.lightLevel);
+                    addTriangle( p3 , p2 , p1 , NORMAL_LEFT , color , quad.lightLevel);
                 }
                 break;
             case SIDE_RIGHT:   
@@ -243,10 +246,10 @@ public class ChunkRenderer implements Disposable
                 p3.x = quad.centerX ; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ + halfBlockSize;
                 
                 if ( WorldRenderer.RENDER_WIREFRAME ) {
-                    addQuad(p0,p1,p2,p3, NORMAL_RIGHT , color );
+                    addQuad(p0,p1,p2,p3, NORMAL_RIGHT , color , quad.lightLevel);
                 } else {
-                    addTriangle( p0 , p1 , p3 , NORMAL_RIGHT , color );
-                    addTriangle( p3 , p1 , p2 , NORMAL_RIGHT , color );
+                    addTriangle( p0 , p1 , p3 , NORMAL_RIGHT , color , quad.lightLevel);
+                    addTriangle( p3 , p1 , p2 , NORMAL_RIGHT , color , quad.lightLevel);
                 }
                 break;
             case SIDE_TOP:     
@@ -256,10 +259,10 @@ public class ChunkRenderer implements Disposable
                 p3.x = quad.centerX - halfBlockSize ; p3.y = quad.centerY ; p3.z = quad.centerZ - halfBlockSize;
                 
                 if ( WorldRenderer.RENDER_WIREFRAME ) {
-                    addQuad(p0,p1,p2,p3, NORMAL_TOP , color );
+                    addQuad(p0,p1,p2,p3, NORMAL_TOP , color , quad.lightLevel);
                 } else {
-                    addTriangle( p0 , p2 , p3 , NORMAL_TOP , color );
-                    addTriangle( p0 , p1 , p2 , NORMAL_TOP , color );
+                    addTriangle( p0 , p2 , p3 , NORMAL_TOP , color , quad.lightLevel);
+                    addTriangle( p0 , p1 , p2 , NORMAL_TOP , color , quad.lightLevel);
                 }
                 break;
             case SIDE_BOTTOM:  
@@ -269,10 +272,10 @@ public class ChunkRenderer implements Disposable
                 p3.x = quad.centerX - halfBlockSize ; p3.y = quad.centerY ; p3.z = quad.centerZ - halfBlockSize;
                 
                 if ( WorldRenderer.RENDER_WIREFRAME ) {
-                    addQuad(p0,p1,p2,p3, NORMAL_BOTTOM , color );
+                    addQuad(p0,p1,p2,p3, NORMAL_BOTTOM , color , quad.lightLevel);
                 } else {               
-                    addTriangle( p0 , p3 , p2 , NORMAL_BOTTOM , color );
-                    addTriangle( p0 , p2 , p1 , NORMAL_BOTTOM , color );
+                    addTriangle( p0 , p3 , p2 , NORMAL_BOTTOM , color , quad.lightLevel);
+                    addTriangle( p0 , p2 , p1 , NORMAL_BOTTOM , color , quad.lightLevel);
                 }
                 break;
             default:
@@ -280,7 +283,7 @@ public class ChunkRenderer implements Disposable
         }
     }   
 
-    private void addQuad(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 p3,Vector3 normal,float[] color) 
+    private void addQuad(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 p3,Vector3 normal,float[] color,float lightLevel) 
     {
         final int bytesAvailable = buffer.vertexData.length - buffer.vertexPtr;
         if ( bytesAvailable < 8 * VERTEX_FLOAT_SIZE ) {
@@ -288,20 +291,20 @@ public class ChunkRenderer implements Disposable
             System.arraycopy( buffer.vertexData , 0 , tmp , 0 , buffer.vertexPtr );
             buffer.vertexData = tmp;
         }
-        addVertex( p0 , normal , color );
-        addVertex( p1 , normal , color );
-
-        addVertex( p1 , normal , color );
-        addVertex( p2 , normal , color );
-
-        addVertex( p2 , normal , color );            
-        addVertex( p3 , normal , color );
-
-        addVertex( p3 , normal , color );
-        addVertex( p0 , normal , color );            
+        addVertex( p0 , normal , color , lightLevel );
+        addVertex( p1 , normal , color , lightLevel );
+                                       
+        addVertex( p1 , normal , color , lightLevel );
+        addVertex( p2 , normal , color , lightLevel );
+                                       
+        addVertex( p2 , normal , color , lightLevel );            
+        addVertex( p3 , normal , color , lightLevel );
+                                       
+        addVertex( p3 , normal , color , lightLevel );
+        addVertex( p0 , normal , color , lightLevel );            
     }     
 
-    private void addTriangle(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 normal,float[] color) 
+    private void addTriangle(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 normal,float[] color,float lightLevel) 
     {
         final int maxSize = buffer.vertexData.length;
         final int bytesAvailable = maxSize - buffer.vertexPtr;
@@ -310,12 +313,12 @@ public class ChunkRenderer implements Disposable
             System.arraycopy( buffer.vertexData , 0 , tmp , 0 , buffer.vertexPtr );
             buffer.vertexData = tmp;
         }
-        addVertex( p0 , normal , color );
-        addVertex( p1 , normal , color );
-        addVertex( p2 , normal , color );
+        addVertex( p0 , normal , color , lightLevel );
+        addVertex( p1 , normal , color , lightLevel );
+        addVertex( p2 , normal , color , lightLevel );
     }    
 
-    private void addVertex(Vector3 p,Vector3 normal,float[] color) 
+    private void addVertex(Vector3 p,Vector3 normal,float[] color,float lightLevel) 
     {
         final float[] vertexData = buffer.vertexData;
         int vertexPtr = buffer.vertexPtr;
@@ -332,6 +335,8 @@ public class ChunkRenderer implements Disposable
         vertexData[ vertexPtr+7 ] = color[1];
         vertexData[ vertexPtr+8 ] = color[2];
         vertexData[ vertexPtr+9 ] = color[3];
+        
+        vertexData[ vertexPtr+10 ] = lightLevel;
 
         buffer.vertexPtr += VERTEX_FLOAT_SIZE;
     }
