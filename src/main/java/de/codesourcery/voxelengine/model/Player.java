@@ -118,7 +118,7 @@ public class Player
         final Vector3 feetPosition = feetPosition();
         final Chunk headChunk = world.getWorldChunk( headPosition );
         int blockType = headChunk.getBlockType( headChunk.blockIndex( headPosition ) );
-        if ( blockType != BlockType.BLOCKTYPE_AIR ) { // head is blocked, move up
+        if ( blockType != BlockType.AIR ) { // head is blocked, move up
             headPosition.y += delta * 5f;
             playerTranslated=true;
             return;
@@ -128,7 +128,7 @@ public class Player
         feetChunk.getBlockKey( feetPosition , block );
         
         blockType = feetChunk.getBlockType( feetChunk.blockIndex( feetPosition ) );
-        if ( blockType != BlockType.BLOCKTYPE_AIR ) { // feet are blocked, move up
+        if ( blockType != BlockType.AIR ) { // feet are blocked, move up
             final float blockTopY = feetChunk.center.y - World.CHUNK_HALF_WIDTH + block.y * World.BLOCK_SIZE;
             float deltaY = Math.abs( feetPosition.y - blockTopY );
             if ( deltaY > 0.05f) {
@@ -148,7 +148,7 @@ public class Player
             feetChunk = feetChunk.bottomNeighbour;
         }
         blockType = feetChunk.getBlockType( block.x , block.y , block.z );
-        if ( blockType == BlockType.BLOCKTYPE_AIR ) { // oops, need to fall down
+        if ( blockType == BlockType.AIR ) { // oops, need to fall down
             headPosition.y -= delta * COLLISION_Y_ADJUST;
             if ( headPosition.y < PLAYER_HEIGHT ) {
                 headPosition.y = PLAYER_HEIGHT;

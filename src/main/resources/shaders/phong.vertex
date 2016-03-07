@@ -16,6 +16,7 @@ uniform mat3 u_normalMatrix;
 smooth out vec3 rotatedSurfaceNormal;
 smooth out vec3 v_lightDir;
 smooth out vec4 colorOut;
+out float lightLevel;
 
 void main()                   
 {   
@@ -32,6 +33,7 @@ void main()
    v_lightDir = normalize(lightPos.xyz - eyeVertex.xyz);
    
    gl_Position =  u_modelViewProjection * v_position;
-   colorOut.rgb = (v_lightLevel/15) * v_color.rgb; // Divide by MAX LIGHT LEVEL !!!!
-   colorOut.a = v_color.a;
+   
+   lightLevel = (v_lightLevel/15); // !! DIVIDE BY MAX_LIGHT_LEVEL - make sure it matches max. value defined in Chunk class !!
+   colorOut = v_color;
 }

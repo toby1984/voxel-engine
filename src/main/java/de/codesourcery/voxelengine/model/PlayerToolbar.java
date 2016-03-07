@@ -11,9 +11,9 @@ public class PlayerToolbar {
     private int selectedSlot = NONE;
     
     public PlayerToolbar() {
-        items[0] = new Item(ItemType.BLOCK_CREATOR,"Block-Creator #1").setCreatedBlockType( BlockType.BLOCKTYPE_SOLID_1 );
+        items[0] = new Item(ItemType.BLOCK_CREATOR_1,"Block-Creator #1").setCreatedBlockType( BlockType.SOLID_1 );
         items[1] = new Item(ItemType.BLOCK_DESTROYER,"Block-Destroyer").setCanDestroyBlock( true );
-        items[2] = new Item(ItemType.BLOCK_CREATOR,"Block-Creator #2").setCreatedBlockType( BlockType.BLOCKTYPE_SOLID_2 );
+        items[2] = new Item(ItemType.BLOCK_CREATOR_2,"Block-Creator #2").setCreatedBlockType( BlockType.GLOWSTONE );
     }
     
     public boolean isItemSelected() {

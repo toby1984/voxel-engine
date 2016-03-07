@@ -11,18 +11,18 @@ import de.codesourcery.voxelengine.model.World;
 import junit.framework.TestCase;
 
 public class ChunkTest extends TestCase {
-    
+
     public void testChunkIsEmpty() {
         final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
         assertTrue( chunk.isEmpty() );
     }
-    
+
     public void testSetBlockTypes() {
-        
+
         final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
-        
+
         final Random rnd = new Random(0xdeadbeef);
-        
+
         for ( int x = 0 ; x < 32 ; x++ ) 
         {
             for ( int y = 0 ; y < 32 ; y++ ) 
@@ -45,14 +45,14 @@ public class ChunkTest extends TestCase {
         chunk.updateIsEmptyFlag();
         assertFalse( chunk.isEmpty() );
     }
-    
+
     public void testChunkBoundaries() 
     {
         final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
         assertEquals( new Vector3(-16f,-16f,-16f) , chunk.boundingBox.min);
         assertEquals( new Vector3(16f,16f,16f) , chunk.boundingBox.max);
     }
-    
+
     public void testWorldToBlock1() 
     {
         final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
@@ -63,7 +63,7 @@ public class ChunkTest extends TestCase {
         final Vector3 blockCenter = chunk.getBlockCenter( blockKey );
         assertEquals( new Vector3(0,0,0) , blockCenter );
     }
-    
+
     public void testWorldToBlock2() 
     {
         final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
@@ -74,7 +74,7 @@ public class ChunkTest extends TestCase {
         final Vector3 blockCenter = chunk.getBlockCenter( blockKey );
         assertEquals( new Vector3(World.BLOCK_SIZE,0,0) , blockCenter );
     }   
-    
+
     public void testWorldToBlock3() 
     {
         final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
@@ -85,7 +85,7 @@ public class ChunkTest extends TestCase {
         final Vector3 blockCenter = chunk.getBlockCenter( blockKey );
         assertEquals( new Vector3(-World.CHUNK_HALF_WIDTH,-World.CHUNK_HALF_WIDTH,-World.CHUNK_HALF_WIDTH) , blockCenter );
     }     
-    
+
     public void testWorldToBlock4() 
     {
         final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
@@ -96,7 +96,7 @@ public class ChunkTest extends TestCase {
         final Vector3 blockCenter = chunk.getBlockCenter( blockKey );
         assertEquals( new Vector3(15,15,15) , blockCenter );
     }  
-    
+
     public void testWorldToBlock5() 
     {
         final Chunk chunk = new Chunk( new ChunkKey(0,0,0) );
@@ -107,7 +107,7 @@ public class ChunkTest extends TestCase {
         final Vector3 blockCenter = chunk.getBlockCenter( blockKey );
         assertEquals( new Vector3(0,0,0) , blockCenter );
     } 
-    
+
     public void testWorldToBlock6() 
     {
         final Chunk chunk = new Chunk( new ChunkKey(0,0, 0) );
@@ -120,12 +120,12 @@ public class ChunkTest extends TestCase {
         assertEquals( worldCoords , blockCenter );
         assertEquals( worldCoords , BlockKey.getBlockCenter( chunk.chunkKey , blockKey.x , blockKey.y , blockKey.z , new Vector3() ) );
     }  
-    
+
     public void testWorldToBlock7() 
     {
         final Vector3 v = new Vector3();
         final ChunkKey chunk = new ChunkKey(0, 0, 0);
-        
+
         for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) {
             for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) {
                 for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
@@ -134,5 +134,25 @@ public class ChunkTest extends TestCase {
                 }                
             }
         }
-    }    
+    }
+
+    public void testBlockIndex() {
+
+        for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
+        {
+            for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) 
+            {
+                for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
+                {
+                    final int index = Chunk.blockIndex(x,y,z);
+                    final int xx = Chunk.blockIndexX(index);
+                    final int yy = Chunk.blockIndexY(index);
+                    final int zz = Chunk.blockIndexZ(index);
+                    assertEquals( x , xx );
+                    assertEquals( y , yy );
+                    assertEquals( z , zz );
+                }
+            }
+        }
+    }
 }

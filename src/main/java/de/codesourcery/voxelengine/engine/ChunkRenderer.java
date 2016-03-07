@@ -33,8 +33,9 @@ public class ChunkRenderer implements Disposable
     private static final int SIDE_BOTTOM = 5;
 
     // TODO: Test code with fixed colors, remove when done
-    private static final float[] COLOR_SOLID_1 = new float[] { 0f , 0.5f , 0f , 1 }; // r,g,b,a
-    private static final float[] COLOR_SOLID_2 = new float[] { 0 , 1 , 0 , 1 }; // r,g,b,a
+    private static final float[] COLOR_SOLID_1   = new float[] { 0f , 0.5f , 0f , 1 }; // r,g,b,a
+    private static final float[] COLOR_SOLID_2   = new float[] { 0 , 1 , 0 , 1 }; // r,g,b,a
+    private static final float[] COLOR_GLOWSTONE = new float[] { 1 , 1 , 0 , 1 }; // r,g,b,a
 
     private static final VertexAttribute ATTR_POSITION = new VertexAttribute( Usage.Position , 3 , "v_position" ); 
     private static final VertexAttribute ATTR_NORMAL = new VertexAttribute( Usage.Normal , 3 , "v_normal" );
@@ -88,12 +89,12 @@ public class ChunkRenderer implements Disposable
     {
         switch( side ) 
         {
-            case SIDE_TOP:    tmpQuad.set( blockIndex, cx , cy + halfBlockSize , cz , side , lightLevel ); break;
-            case SIDE_BOTTOM: tmpQuad.set( blockIndex, cx , cy - halfBlockSize , cz , side , lightLevel ); break;
-            case SIDE_LEFT:   tmpQuad.set( blockIndex, cx - halfBlockSize , cy , cz , side , lightLevel ); break;
-            case SIDE_RIGHT:  tmpQuad.set( blockIndex, cx + halfBlockSize , cy , cz , side , lightLevel ); break;
-            case SIDE_FRONT:  tmpQuad.set( blockIndex, cx , cy , cz + halfBlockSize , side , lightLevel ); break;
-            case SIDE_BACK:   tmpQuad.set( blockIndex, cx , cy , cz - halfBlockSize , side , lightLevel ); break;
+            case SIDE_TOP:    tmpQuad.set( blockIndex, cx , cy + halfBlockSize , cz , side , lightLevel); break;
+            case SIDE_BOTTOM: tmpQuad.set( blockIndex, cx , cy - halfBlockSize , cz , side , lightLevel); break;
+            case SIDE_LEFT:   tmpQuad.set( blockIndex, cx - halfBlockSize , cy , cz , side , lightLevel); break;
+            case SIDE_RIGHT:  tmpQuad.set( blockIndex, cx + halfBlockSize , cy , cz , side , lightLevel); break;
+            case SIDE_FRONT:  tmpQuad.set( blockIndex, cx , cy , cz + halfBlockSize , side , lightLevel); break;
+            case SIDE_BACK:   tmpQuad.set( blockIndex, cx , cy , cz - halfBlockSize , side , lightLevel); break;
             default:
                 throw new IllegalArgumentException("Unknown side: "+side);
         }
@@ -123,31 +124,67 @@ public class ChunkRenderer implements Disposable
                 for ( int z = 0 ; z < chunkSize ; z++ , bz += blockSize  ) 
                 {
                     final int blockIndex = Chunk.blockIndex(x,y,z);
-                    if ( chunk.isBlockNotEmpty( blockIndex ) ) // only render non-empty blocks
+                    final int bt = chunk.getBlockType( blockIndex );
+                    if ( BlockType.isSolidBlock( bt ) ) // only render non-empty blocks
                     {
+                        float lightLevel;
+                        final boolean isEmittingLight = BlockType.emitsLight( bt );
+                        
+                        // TODO: Dirty hack... adding LIGHTLEVEL_MAX if the block itself is emitting light... this is a hint
+                        // TODO: to the shader to ignore the dot product with the normal to the 'sun' and just use the light level as-is
+                        final byte emittedLightLevel = isEmittingLight ? (byte) (Chunk.LIGHTLEVEL_MAX + BlockType.getEmittedLightLevel( bt ) ) : (byte) 0 ;
                         if ( hasNoBackNeighbour( x , y , z ) ) 
                         {
-                            final float lightLevel = z == 0 ? chunk.backNeighbour.getLightLevel( x , y , World.CHUNK_SIZE-1 ) : chunk.getLightLevel( x , y , z-1 ); 
-                            addQuad( blockIndex , bx , by , bz , SIDE_BACK , halfBlockSize , lightLevel  );
+                            if ( isEmittingLight ) {
+                                lightLevel = emittedLightLevel;
+                            } else {
+                                lightLevel = z == 0 ? chunk.backNeighbour.getLightLevel( x , y , World.CHUNK_SIZE-1 ) : chunk.getLightLevel( x , y , z-1 );
+                            }
+                            addQuad( blockIndex , bx , by , bz , SIDE_BACK , halfBlockSize , lightLevel );
                         }
-                        if ( hasNoFrontNeighbour( x , y , z ) ) {
-                            final float lightLevel = z == World.CHUNK_SIZE-1 ? chunk.frontNeighbour.getLightLevel( x , y , 0 ) : chunk.getLightLevel( x , y , z+1 ); 
+                        if ( hasNoFrontNeighbour( x , y , z ) ) 
+                        {
+                            if ( isEmittingLight ) {
+                                lightLevel = emittedLightLevel;
+                            } else {                            
+                                lightLevel = z == World.CHUNK_SIZE-1 ? chunk.frontNeighbour.getLightLevel( x , y , 0 ) : chunk.getLightLevel( x , y , z+1 );
+                            }
                             addQuad( blockIndex ,bx , by , bz , SIDE_FRONT , halfBlockSize , lightLevel );
                         }
-                        if ( hasNoLeftNeighbour( x , y , z ) ) {
-                            final float lightLevel = x == 0 ? chunk.leftNeighbour.getLightLevel( World.CHUNK_SIZE-1  , y , z ) : chunk.getLightLevel( x-1 , y , z ); 
+                        if ( hasNoLeftNeighbour( x , y , z ) ) 
+                        {
+                            if ( isEmittingLight ) {
+                                lightLevel = 1+emittedLightLevel;
+                            } else {                            
+                                lightLevel = x == 0 ? chunk.leftNeighbour.getLightLevel( World.CHUNK_SIZE-1  , y , z ) : chunk.getLightLevel( x-1 , y , z );
+                            }
                             addQuad( blockIndex ,bx , by , bz , SIDE_LEFT , halfBlockSize , lightLevel );
                         }
-                        if ( hasNoRightNeighbour( x , y , z ) ) {
-                            final float lightLevel = x == World.CHUNK_SIZE-1 ? chunk.rightNeighbour.getLightLevel( 0  , y , z ) : chunk.getLightLevel( x+1 , y , z ); 
+                        if ( hasNoRightNeighbour( x , y , z ) ) 
+                        {
+                            if ( isEmittingLight ) {
+                                lightLevel = emittedLightLevel;
+                            } else {
+                                lightLevel = x == World.CHUNK_SIZE-1 ? chunk.rightNeighbour.getLightLevel( 0  , y , z ) : chunk.getLightLevel( x+1 , y , z );
+                            }
                             addQuad( blockIndex ,bx , by , bz , SIDE_RIGHT , halfBlockSize , lightLevel );
                         }
-                        if ( hasNoTopNeighbour( x , y , z ) ) {
-                            final float lightLevel = y == World.CHUNK_SIZE-1 ? chunk.topNeighbour.getLightLevel( x  , 0 , z ) : chunk.getLightLevel( x , y+1 , z ); 
+                        if ( hasNoTopNeighbour( x , y , z ) ) 
+                        {
+                            if ( isEmittingLight ) {
+                                lightLevel = emittedLightLevel;
+                            } else {                            
+                                lightLevel = y == World.CHUNK_SIZE-1 ? chunk.topNeighbour.getLightLevel( x  , 0 , z ) : chunk.getLightLevel( x , y+1 , z );
+                            }
                             addQuad( blockIndex ,bx , by , bz , SIDE_TOP , halfBlockSize , lightLevel );
                         }
-                        if ( hasNoBottomNeighbour( x , y , z ) ) {
-                            final float lightLevel = y == 0 ? chunk.bottomNeighbour.getLightLevel( x  , World.CHUNK_SIZE-1 , z ) : chunk.getLightLevel( x , y-1 , z ); 
+                        if ( hasNoBottomNeighbour( x , y , z ) ) 
+                        {
+                            if ( isEmittingLight ) {
+                                lightLevel = emittedLightLevel;
+                            } else {
+                                lightLevel = y == 0 ? chunk.bottomNeighbour.getLightLevel( x  , World.CHUNK_SIZE-1 , z ) : chunk.getLightLevel( x , y-1 , z );
+                            }
                             addQuad( blockIndex ,bx , by , bz , SIDE_BOTTOM , halfBlockSize , lightLevel );
                         }
                     }
@@ -199,8 +236,9 @@ public class ChunkRenderer implements Disposable
 
         final float[] color;
         switch ( chunk.getBlockType( quad.blockIndex ) ) {
-            case BlockType.BLOCKTYPE_SOLID_1: color = COLOR_SOLID_1; break;
-            case BlockType.BLOCKTYPE_SOLID_2: color = COLOR_SOLID_2; break;
+            case BlockType.SOLID_1: color = COLOR_SOLID_1; break;
+            case BlockType.SOLID_2: color = COLOR_SOLID_2; break;
+            case BlockType.GLOWSTONE: color = COLOR_GLOWSTONE; break;
             default:
                 throw new RuntimeException("Unhandled block type: "+chunk.getBlockType( quad.blockIndex ) );
         }

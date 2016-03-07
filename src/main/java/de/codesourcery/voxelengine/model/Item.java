@@ -7,7 +7,7 @@ public class Item
 
     private boolean canDestroyBlock;
     private boolean canCreateBlock;
-    
+    private boolean emitsLight;
     private int createdBlockType;
     
     public Item(int type,String name) 

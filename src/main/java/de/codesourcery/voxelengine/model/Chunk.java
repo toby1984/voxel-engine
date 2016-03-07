@@ -55,7 +55,9 @@ public class Chunk implements Disposable
     
     public static final byte LIGHTLEVEL_MAX = 15; // !!!! Make sure to adjust phong shader when changing the maximum value !!!!
     
-    public static final byte LIGHTLEVEL_SUNLIGHT = 15;
+    public static final byte LIGHTLEVEL_SUNLIGHT = 5;
+    
+    public static final byte LIGHTLEVEL_TORCH = 10;
     
     /**
      * Chunk key.
@@ -153,7 +155,7 @@ public class Chunk implements Disposable
     public Chunk(ChunkKey key) 
     {
         this(key,new int[ World.BLOCKS_IN_CHUNK ], new byte[ World.BLOCKS_IN_CHUNK ] );
-        Arrays.fill( blockTypes , BlockType.BLOCKTYPE_AIR );
+        Arrays.fill( blockTypes , BlockType.AIR );
         flags |= FLAG_EMPTY;        
     }
     
@@ -183,6 +185,11 @@ public class Chunk implements Disposable
         updateIsEmptyFlag();
     }
     
+    public boolean emitsLight(int blockIndex) 
+    {
+        return BlockType.emitsLight( blockTypes[blockIndex] );
+    }
+    
     /**
      * Sets all blocks to the given light level.
      * 
@@ -190,7 +197,6 @@ public class Chunk implements Disposable
      */
     public void setLightLevel(byte level) 
     {
-        System.out.println("Setting all blocks in "+chunkKey+" to light level "+level);
        Arrays.fill( this.lightLevels , level ); 
     }
     
@@ -415,7 +421,7 @@ public class Chunk implements Disposable
     {
         for ( int i = 0 , len = blockTypes.length ; i < len ; i++ ) 
         {
-            if ( blockTypes[i] != BlockType.BLOCKTYPE_AIR ) 
+            if ( blockTypes[i] != BlockType.AIR ) 
             {
                 clearFlags( FLAG_EMPTY );
                 return false;
@@ -492,12 +498,12 @@ public class Chunk implements Disposable
    
     public boolean isBlockEmpty(Vector3 worldCoords) 
     {
-        return getBlockType( worldCoords ) == BlockType.BLOCKTYPE_AIR;
+        return getBlockType( worldCoords ) == BlockType.AIR;
     }
     
     public boolean isBlockNotEmpty(Vector3 worldCoords) 
     {
-        return getBlockType( worldCoords ) != BlockType.BLOCKTYPE_AIR;
+        return getBlockType( worldCoords ) != BlockType.AIR;
     }    
     
     /**
@@ -512,6 +518,49 @@ public class Chunk implements Disposable
     public static int blockIndex(int x,int y,int z) {
         return x+y*World.CHUNK_SIZE + World.CHUNK_SIZE * World.CHUNK_SIZE * z;
     }
+    
+    /**
+     * Extracts the X coordinate from a given block index.
+     * 
+     * @param blockIndex
+     * @return
+     * @see #blockIndex(int, int, int)
+     */
+    public static int blockIndexX(int blockIndex) {
+        /*
+         *           blockIndex = x + z* World.CHUNK_SIZE * World.CHUNK_SIZE  + y*World.CHUNK_SIZE;                      
+         * 
+         * HE uses: short index = x + y * World.CHUNK_SIZE * World.CHUNK_SIZE + z * World.CHUNK_SIZE ;
+         * 
+       int x = index % World.CHUNK_SIZE; 
+       int z = index / (World.CHUNK_SIZE*World.CHUNK_SIZE); 
+       int y = (index % (World.CHUNK_SIZE*World.CHUNK_SIZE) ) / World.CHUNK_SIZE;         
+         */
+        return blockIndex % World.CHUNK_SIZE;
+    }
+    
+    /**
+     * Extracts the Y coordinate from a given block index.
+     * 
+     * @param blockIndex
+     * @return
+     * @see #blockIndex(int, int, int)
+     */
+    public static int blockIndexY(int blockIndex) {
+       return (blockIndex % (World.CHUNK_SIZE*World.CHUNK_SIZE) ) / World.CHUNK_SIZE;         
+    }
+    
+    /**
+     * Extracts the Z coordinate from a given block index.
+     * 
+     * @param blockIndex
+     * @return
+     * @see #blockIndex(int, int, int)
+     */
+    public static int blockIndexZ(int blockIndex) {
+       return blockIndex / (World.CHUNK_SIZE*World.CHUNK_SIZE); 
+    }    
+    
     
     public static int blockIndex(BlockKey key) {
         return key.x+key.y*World.CHUNK_SIZE + World.CHUNK_SIZE * World.CHUNK_SIZE * key.z;
@@ -561,12 +610,12 @@ public class Chunk implements Disposable
      * @return
      */
     public boolean isBlockEmpty(int bx,int by,int bz) {
-        return getBlockType( bx , by , bz ) == BlockType.BLOCKTYPE_AIR;
+        return getBlockType( bx , by , bz ) == BlockType.AIR;
     }
     
     public boolean isBlockEmpty(int blockIndex) 
     {
-        return blockTypes[ blockIndex ] == BlockType.BLOCKTYPE_AIR;
+        return blockTypes[ blockIndex ] == BlockType.AIR;
     }    
     
     /**
@@ -576,7 +625,7 @@ public class Chunk implements Disposable
      * @return
      */
     public boolean isBlockEmpty(BlockKey key) {
-        return getBlockType( key.x , key.y , key.z ) == BlockType.BLOCKTYPE_AIR;
+        return getBlockType( key.x , key.y , key.z ) == BlockType.AIR;
     }    
     
     /**
@@ -588,7 +637,7 @@ public class Chunk implements Disposable
      * @return
      */
     public boolean isBlockNotEmpty(int bx,int by,int bz) {
-        return getBlockType( bx , by , bz ) != BlockType.BLOCKTYPE_AIR;
+        return getBlockType( bx , by , bz ) != BlockType.AIR;
     }  
     
     /**
@@ -598,11 +647,11 @@ public class Chunk implements Disposable
      * @return
      */
     public boolean isBlockNotEmpty(int blockIndex) {
-        return getBlockType( blockIndex ) != BlockType.BLOCKTYPE_AIR;
+        return getBlockType( blockIndex ) != BlockType.AIR;
     }     
     
     public boolean isBlockNotEmpty(BlockKey key) {
-        return getBlockType( key.x , key.y , key.z ) != BlockType.BLOCKTYPE_AIR;
+        return getBlockType( key.x , key.y , key.z ) != BlockType.AIR;
     }     
     
     /**

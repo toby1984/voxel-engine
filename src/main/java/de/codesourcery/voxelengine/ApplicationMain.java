@@ -168,7 +168,7 @@ public class ApplicationMain implements ApplicationListener {
                     if ( selectedChunk.isBlockNotEmpty( bx , by , bz ) ) 
                     {
                         playerController.buttonPressRegistered();
-                        selectedChunk.setBlockType( bx , by , bz , BlockType.BLOCKTYPE_AIR );
+                        selectedChunk.setBlockType( bx , by , bz , BlockType.AIR );
                         selectedChunk.updateIsEmptyFlag();
                         chunkChanged = true;                            
                     }
@@ -330,11 +330,18 @@ public class ApplicationMain implements ApplicationListener {
         y -= fontHeight;
         font.draw(spriteBatch, append("Total triangles: ",worldRenderer.totalTriangles), 10, y );  
         
-        y -= fontHeight;
         if ( world.selectedBlock.hasSelection() ) 
         {
+            y -= fontHeight;
             font.draw(spriteBatch, append("Selection: ",world.selectedBlock.chunkID,world.selectedBlock.blockID) , 10, y );
+            y -= fontHeight;
+            final int bx = BlockKey.getX(  world.selectedBlock.blockID );
+            final int by = BlockKey.getY(  world.selectedBlock.blockID );
+            final int bz = BlockKey.getZ(  world.selectedBlock.blockID );
+            final byte level = chunkManager.getChunk( world.selectedBlock.chunkID ).getLightLevel( bx , by, bz );
+            font.draw(spriteBatch, append("Light level: ",level) , 10, y );            
         } else {
+            y -= fontHeight;
             font.draw(spriteBatch, "Selection: NONE" , 10, y );
         }
 

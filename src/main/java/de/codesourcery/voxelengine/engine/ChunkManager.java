@@ -503,7 +503,7 @@ public class ChunkManager implements Disposable
         final Chunk chunk = new Chunk(key);
         chunk.setNeedsSave( true );
         for ( int i = 0 ; i < World.CHUNK_SIZE*World.CHUNK_SIZE*World.CHUNK_SIZE ; i++) {
-            chunk.blockTypes[i] = BlockType.BLOCKTYPE_SOLID_1;
+            chunk.blockTypes[i] = BlockType.SOLID_1;
         }
         chunk.updateIsEmptyFlag();
         return chunk;
@@ -521,7 +521,7 @@ public class ChunkManager implements Disposable
             {
                 for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
                 {
-                    chunk.setBlockType( x ,middle , z , BlockType.BLOCKTYPE_SOLID_2 );
+                    chunk.setBlockType( x ,middle , z , BlockType.SOLID_2 );
                 }
             }
             chunk.updateIsEmptyFlag();
@@ -577,7 +577,7 @@ public class ChunkManager implements Disposable
                     }
                     if ( value > 0.4f ) 
                     {
-                        chunk.setBlockType(x,y,z,BlockType.BLOCKTYPE_SOLID_1);
+                        chunk.setBlockType(x,y,z,BlockType.SOLID_1);
                     } 
                 }
             }

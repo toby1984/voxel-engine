@@ -17,6 +17,7 @@ import com.badlogic.gdx.math.Plane;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.LongMap;
 import com.badlogic.gdx.utils.LongMap.Entries;
+import com.badlogic.gdx.utils.Queue;
 
 import de.codesourcery.voxelengine.model.BlockKey;
 import de.codesourcery.voxelengine.model.BlockType;
@@ -24,6 +25,7 @@ import de.codesourcery.voxelengine.model.Chunk;
 import de.codesourcery.voxelengine.model.ChunkKey;
 import de.codesourcery.voxelengine.model.Player;
 import de.codesourcery.voxelengine.model.World;
+import de.codesourcery.voxelengine.utils.IntQueue;
 
 /**
  * Responsible for rendering the game world.
@@ -60,6 +62,8 @@ public class WorldRenderer implements Disposable
 
     private Chunk[] visibleChunkList = new Chunk[ MAX_CHUNKS_TO_LOAD ];
     public int visibleChunkCount=0; 
+    
+    private final IntQueue lightQueue = new IntQueue( World.BLOCKS_IN_CHUNK );
 
     // Comparator used to sort chunks in top->down (+y -> -y ) order for
     // properly calculating the influence of sun light
@@ -273,26 +277,14 @@ public class WorldRenderer implements Disposable
             {
                 if ( chunk.isNotEmpty() ) 
                 {
-                    calculateSunlight( chunk );                    
+                    calculateLighting( chunk );      
+                    buildMesh( chunk );
+                    chunk.clearFlags( Chunk.FLAG_NEEDS_REBUILD );
                 } else {
                     chunk.setLightLevel( Chunk.LIGHTLEVEL_SUNLIGHT );
                 }
             }
         }
-
-        // calculate diffuse light & build mesh
-        for ( int i = 0 ; i < visibleChunkCount ; i++ ) 
-        {
-            final Chunk chunk = visibleChunkList[i];
-            if ( chunk.isNotEmpty() ) 
-            {
-                if ( chunk.needsRebuild() ) {
-                    calculateDiffuseLight( chunk );                    
-                    buildMesh( chunk );
-                }
-            }
-            chunk.clearFlags( Chunk.FLAG_NEEDS_REBUILD );
-        }        
 
         // render skybox 
         skyBox.render( world.camera );
@@ -329,17 +321,15 @@ public class WorldRenderer implements Disposable
         this.totalTriangles = totalTriangles;
         chunkShader.end();        
     }
-
-    private void calculateSunlight(Chunk chunk) 
+    
+    private void calculateLighting(Chunk chunk) 
     {
-        System.out.println("Lighting chunk "+chunk.chunkKey);
-
-        // set all blocks to be 'dark'
-        // TODO: This applies to opaque and non-opaque blocks all the same,
-        // TODO: needs to be changed when introducing light emitting blocks (these blocks need to keep their light levels) !!!
+        lightQueue.clear();
+        
         chunk.setLightLevel( (byte) 0 );
 
-        // light top->down blocks
+        // set light level to "sunlight" on all empty blocks in columns starting from top -> bottom
+        // enqueuing all those blocks for flood-filling 
         for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
         {
             for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
@@ -348,6 +338,7 @@ public class WorldRenderer implements Disposable
                 {
                     final byte lightLevel = chunk.topNeighbour == null ? Chunk.LIGHTLEVEL_SUNLIGHT : chunk.topNeighbour.getLightLevel(x,0,z);
                     chunk.setLightLevel( x , World.CHUNK_SIZE-1 , z , lightLevel );
+                    lightQueue.push( Chunk.blockIndex( x , World.CHUNK_SIZE-1 , z ) );
                     for ( int y = World.CHUNK_SIZE-2 ; y >= 0 ; y --) 
                     {
                         final int blockIndex = Chunk.blockIndex( x , y , z );
@@ -356,47 +347,115 @@ public class WorldRenderer implements Disposable
                             break;
                         }
                         chunk.setLightLevel( blockIndex , lightLevel );
+                        lightQueue.push( blockIndex );
                     }       
                 }
             }                        
         }
-    }
+        
+        // enqueue all light-emitting blocks
+        for ( int blockIndex = 0 ; blockIndex < World.BLOCKS_IN_CHUNK ; blockIndex++ ) 
+        {
+            final int bt = chunk.getBlockType( blockIndex );
+            if ( BlockType.emitsLight( bt ) ) {
+                chunk.setLightLevel( blockIndex , BlockType.getEmittedLightLevel( bt ) ); 
+                lightQueue.push( blockIndex );
+            }
+        }
 
-    private void calculateDiffuseLight(Chunk chunk) 
-    {
-        // for each non-opaque block that has a light-level
-        // of 0, set it to the average lightlevel of all neighbouring
-        // blocks minus one
-        final BlockKey tmp = new BlockKey();
-        for ( int y = World.CHUNK_SIZE-1 ; y >= 0 ; y-- ) 
-        {        
-            for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
+        while ( lightQueue.isNotEmpty() ) 
+        {
+            final int blockIndex = lightQueue.pop();
+            final int x = Chunk.blockIndexX( blockIndex );
+            final int y = Chunk.blockIndexY( blockIndex );
+            final int z = Chunk.blockIndexZ( blockIndex );
+            
+            final byte currentLevel = chunk.getLightLevel( blockIndex );
+            final byte newLevel = (byte) (currentLevel - 1);
+            
+            // check top neighbour
+            if ( (y+1) < World.CHUNK_SIZE ) 
             {
-                for ( int z = 0 ; z < World.CHUNK_SIZE ; z++) 
+                final int blockIdx = Chunk.blockIndex(x,y+1,z);
+                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
                 {
-                    final int blockIndex = Chunk.blockIndex( x , y , z );
-                    if ( chunk.isBlockEmpty( blockIndex ) ) 
-                    {
-                        byte lightlevel = chunk.getLightLevel( blockIndex );
-                        if ( lightlevel == 0 ) 
-                        {
-                            tmp.set(x,y,z);
-                            final byte newLevel = chunk.calcNeighbourLightLevel( tmp );
-                            if ( newLevel >= 2 ) {
-                                chunk.setLightLevel( blockIndex , (byte) (newLevel-2) );
-                            }
-                        }
+                    chunk.setLightLevel( blockIdx , newLevel );
+                    if ( newLevel > 1 ) {
+                        lightQueue.push( blockIdx );
                     }
                 }
             }
+            // check bottom neighbour
+            if ( (y-1) >= 0 ) 
+            {
+                final int blockIdx = Chunk.blockIndex(x,y-1,z);
+                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
+                {
+                    chunk.setLightLevel( blockIdx , newLevel );
+                    if ( newLevel > 1 ) {
+                        lightQueue.push( blockIdx );
+                    }
+                }
+            }   
+            
+            // check left neighbour
+            if ( (x-1) >= 0 ) 
+            {
+                final int blockIdx = Chunk.blockIndex(x-1,y,z);
+                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
+                {
+                    chunk.setLightLevel( blockIdx , newLevel  );
+                    if ( newLevel > 1 ) {
+                        lightQueue.push( blockIdx );
+                    }
+                }
+            }     
+            
+            // check right neighbour
+            if ( (x+1) < World.CHUNK_SIZE ) 
+            {
+                final int blockIdx = Chunk.blockIndex(x+1,y,z);
+                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
+                {
+                    chunk.setLightLevel( blockIdx , newLevel  );
+                    if ( newLevel > 1 ) {
+                        lightQueue.push( blockIdx );
+                    }
+                }
+            }    
+            
+            // check front neighbour
+            if ( (z+1) < World.CHUNK_SIZE ) 
+            {
+                final int blockIdx = Chunk.blockIndex(x,y,z+1);
+                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
+                {
+                    chunk.setLightLevel( blockIdx , newLevel  );
+                    if ( newLevel > 1 ) {
+                        lightQueue.push( blockIdx );
+                    }
+                }
+            }             
+            // check back neighbour
+            if ( (z-1) >= 0 ) 
+            {
+                final int blockIdx = Chunk.blockIndex(x,y,z-1);
+                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
+                {
+                    chunk.setLightLevel( blockIdx , newLevel  );
+                    if ( newLevel > 1 ) {
+                        lightQueue.push( blockIdx );
+                    }
+                }
+            }             
         }
-    }    
+    }
 
     private static boolean intersectsSphere(Frustum f,float x,float y,float z,float radius) 
     {
         for(int i = 0; i < 6; ++i) 
         {
-            final Plane plane = f.planes[i]; // distance to this plane
+            final Plane plane = f.planes[i]; 
             final float dist = plane.normal.dot( x , y, z ) + plane.d;
 
             if (dist < -radius) {
