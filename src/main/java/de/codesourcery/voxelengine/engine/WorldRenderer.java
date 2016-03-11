@@ -281,6 +281,8 @@ public class WorldRenderer implements Disposable
                     buildMesh( chunk );
                     chunk.clearFlags( Chunk.FLAG_NEEDS_REBUILD );
                 } else {
+                	// set light levels even on empty chunks as well since
+                	// (sun)light needs to be propagated to adjacent chunks 
                     chunk.setLightLevel( Chunk.LIGHTLEVEL_SUNLIGHT );
                 }
             }
@@ -353,7 +355,7 @@ public class WorldRenderer implements Disposable
             }                        
         }
         
-        // enqueue all light-emitting blocks
+        // enqueue all light-emitting (glowing) blocks
         for ( int blockIndex = 0 ; blockIndex < World.BLOCKS_IN_CHUNK ; blockIndex++ ) 
         {
             final int bt = chunk.getBlockType( blockIndex );
@@ -362,7 +364,130 @@ public class WorldRenderer implements Disposable
                 lightQueue.push( blockIndex );
             }
         }
-
+        
+        // scan sides of this chunk's NEIGHBOUR chunks
+        // and enqueue the index of any block inside the CURRENT chunk
+        // that is adjacent to a light-emitting block.
+        
+        // We'll NOT look at the TOP neighbour again,this has already happened above
+        
+        // bottom of current chunk
+        if ( chunk.bottomNeighbour != null ) 
+        {
+        	final Chunk tmp = chunk.bottomNeighbour;
+	        for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
+	        {
+	        	for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
+	        	{
+	        		final int idx = Chunk.blockIndex( x , World.CHUNK_SIZE-1 , z );
+	        		final int bt = tmp.getBlockType( idx );
+	        		final byte lightLevel = BlockType.emitsLight( bt ) ? BlockType.getEmittedLightLevel( bt ) : tmp.getLightLevel( idx );
+	        		if ( lightLevel > 1 ) 
+	        		{
+	        			final int idx2 = Chunk.blockIndex( x , 0 , z );
+	        			if ( chunk.isBlockEmpty( idx2 ) ) {
+	        				chunk.setLightLevel( idx2 , (byte) (lightLevel - 1 ) );
+	        				lightQueue.push( idx2 );
+	        			}
+	        		}
+	        	}
+	        }
+        }
+        
+        // left of current chunk
+        if ( chunk.leftNeighbour != null ) 
+        {
+        	final Chunk tmp = chunk.leftNeighbour;
+	        for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) 
+	        {
+	        	for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
+	        	{
+	        		final int idx = Chunk.blockIndex( World.CHUNK_SIZE-1 , y, z );
+	        		final int bt = tmp.getBlockType( idx );
+	        		final byte lightLevel = BlockType.emitsLight( bt ) ? BlockType.getEmittedLightLevel( bt ) : tmp.getLightLevel( idx );
+	        		if ( lightLevel > 1 ) 
+	        		{
+	        			final int idx2 = Chunk.blockIndex( 0 , y , z );
+	        			if ( chunk.isBlockEmpty( idx2 ) ) {
+	        				chunk.setLightLevel( idx2 , (byte) (lightLevel - 1 ) );
+	        				lightQueue.push( idx2 );
+	        			}
+	        		}
+	        	}
+	        }
+        } 
+        
+        // right of current chunk
+        if ( chunk.rightNeighbour != null ) 
+        {
+        	final Chunk tmp = chunk.rightNeighbour;
+	        for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) 
+	        {
+	        	for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
+	        	{
+	        		final int idx = Chunk.blockIndex( 0 , y, z );
+	        		final int bt = tmp.getBlockType( idx );
+	        		final byte lightLevel = BlockType.emitsLight( bt ) ? BlockType.getEmittedLightLevel( bt ) : tmp.getLightLevel( idx );
+	        		if ( lightLevel > 1 ) 
+	        		{
+	        			final int idx2 = Chunk.blockIndex( World.CHUNK_SIZE-1 , y , z );
+	        			if ( chunk.isBlockEmpty( idx2 ) ) {
+	        				chunk.setLightLevel( idx2 , (byte) (lightLevel - 1 ) );
+	        				lightQueue.push( idx2 );
+	        			}
+	        		}
+	        	}
+	        }
+        }   
+        
+        // back of current chunk
+        if ( chunk.backNeighbour != null ) 
+        {
+        	final Chunk tmp = chunk.backNeighbour;
+	        for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
+	        {
+	        	for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) 
+	        	{
+	        		final int idx = Chunk.blockIndex( x , y, World.CHUNK_SIZE-1 );
+	        		final int bt = tmp.getBlockType( idx );
+	        		final byte lightLevel = BlockType.emitsLight( bt ) ? BlockType.getEmittedLightLevel( bt ) : tmp.getLightLevel( idx );
+	        		if ( lightLevel > 1 ) 
+	        		{
+	        			final int idx2 = Chunk.blockIndex( x , y , 0 );
+	        			if ( chunk.isBlockEmpty( idx2 ) ) {
+	        				chunk.setLightLevel( idx2 , (byte) (lightLevel - 1 ) );
+	        				lightQueue.push( idx2 );
+	        			}
+	        		}
+	        	}
+	        }
+        }      
+        
+        // front of current chunk
+        if ( chunk.frontNeighbour != null ) 
+        {
+        	final Chunk tmp = chunk.frontNeighbour;
+	        for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
+	        {
+	        	for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) 
+	        	{
+	        		final int idx = Chunk.blockIndex( x , y, 0 );
+	        		final int bt = tmp.getBlockType( idx );
+	        		final byte lightLevel = BlockType.emitsLight( bt ) ? BlockType.getEmittedLightLevel( bt ) : tmp.getLightLevel( idx );
+	        		if ( lightLevel > 1 ) 
+	        		{
+	        			final int idx2 = Chunk.blockIndex( x , y , World.CHUNK_SIZE-1 );
+	        			if ( chunk.isBlockEmpty( idx2 ) ) {
+	        				chunk.setLightLevel( idx2 , (byte) (lightLevel - 1 ) );
+	        				lightQueue.push( idx2 );
+	        			}
+	        		}
+	        	}
+	        }
+        }         
+        
+        // recursively visit adjacent neighbours around each enqueued block
+        // until the light level reaches 0
         while ( lightQueue.isNotEmpty() ) 
         {
             final int blockIndex = lightQueue.pop();
@@ -385,6 +510,7 @@ public class WorldRenderer implements Disposable
                     }
                 }
             }
+            
             // check bottom neighbour
             if ( (y-1) >= 0 ) 
             {

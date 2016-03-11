@@ -55,7 +55,7 @@ public class Item
         if ( ! canCreateBlock() ) {
             throw new IllegalStateException("createBlock() called on item that cannot create one ?");
         }
-        chunk.setBlockType( blockX, blockY , blockZ , createdBlockType );
+        chunk.setBlockTypeAndInvalidate( Chunk.blockIndex(blockX, blockY, blockZ) , createdBlockType );
         return true;
     }
     

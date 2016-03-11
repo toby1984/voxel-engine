@@ -39,6 +39,12 @@
 	<version>${libgdx.version}</version>
     </dependency>
     <dependency>
+        <groupId>com.badlogicgames.gdx</groupId>
+        <artifactId>gdx-platform</artifactId>
+        <version>${libgdx.version}</version>
+        <classifier>natives-desktop</classifier>
+    </dependency>
+    <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
       <version>2.4</version>
@@ -79,6 +85,31 @@
           <optimize>false</optimize>
           <debug>true</debug>
         </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>2.2-beta-2</version>
+        <configuration>
+          <appendAssemblyId>false</appendAssemblyId>
+          <finalName>voxel-engine</finalName>
+          <archive>
+            <manifest>
+              <mainClass>de.codesourcery.voxelengine.Main</mainClass>
+            </manifest>
+          </archive>
+          <descriptors>
+            <descriptor>assembly.xml</descriptor>
+          </descriptors>
+        </configuration>
+        <executions>
+          <execution>
+            <id>make-my-jar-with-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

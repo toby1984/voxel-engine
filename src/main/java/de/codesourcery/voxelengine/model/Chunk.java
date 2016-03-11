@@ -48,11 +48,6 @@ public class Chunk implements Disposable
      */
     public static final int FLAG_NEEDS_SAVE = 1<<3;
     
-    /**
-     * Flag: Indicates that the influence of sunlight on this chunk has been calculated.
-     */
-    public static final int FLAG_SUNLIGHT_CALCULATED = 1<<4;    
-    
     public static final byte LIGHTLEVEL_MAX = 15; // !!!! Make sure to adjust phong shader when changing the maximum value !!!!
     
     public static final byte LIGHTLEVEL_SUNLIGHT = 5;
@@ -443,6 +438,30 @@ public class Chunk implements Disposable
     public void setBlockType(int x,int y,int z,int blockType) 
     {
         blockTypes[ blockIndex(x,y,z) ] = blockType;
+    }
+    
+    public void setBlockType(int blockIdx,int blockType) 
+    {
+        blockTypes[ blockIdx ] = blockType;
+    }    
+    
+    /**
+     * Changes the type of a given block and if this block's 
+     * light level is different it will mark neighbouring chunks for
+     * re-meshing/re-building.
+     * 
+     * @param blockIdx
+     * @param newBlockType
+     */
+    public void setBlockTypeAndInvalidate(int blockIdx ,int newBlockType) 
+    {
+        final int oldLightLevel = getLightLevel( blockIdx );
+        final int newLightLevel = BlockType.emitsLight( newBlockType ) ? BlockType.getEmittedLightLevel( newBlockType ) : 0;
+        setBlockType( blockIdx  , newBlockType );
+        if ( oldLightLevel != newLightLevel ) 
+        {
+        	markNeighboursForRebuild();
+        }    	
     }
     
     /**
@@ -855,5 +874,27 @@ public class Chunk implements Disposable
     
     public void markDisposed() {
         this.isDisposed.set(true);
+    }
+    
+    public void markNeighboursForRebuild() 
+    {
+    	if ( topNeighbour != null ) {
+    		topNeighbour.markDirty();
+    	}
+       	if ( bottomNeighbour != null ) {
+    		bottomNeighbour.markDirty();
+    	}   
+       	if ( leftNeighbour != null ) {
+    		leftNeighbour.markDirty();
+    	}       
+       	if ( rightNeighbour != null ) {
+    		rightNeighbour.markDirty();
+    	} 
+       	if ( frontNeighbour != null ) {
+       		frontNeighbour.markDirty();
+    	}        
+       	if ( backNeighbour != null ) {
+       		backNeighbour.markDirty();
+    	}        	
     }
 }

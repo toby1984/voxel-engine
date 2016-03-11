@@ -168,7 +168,7 @@ public class ApplicationMain implements ApplicationListener {
                     if ( selectedChunk.isBlockNotEmpty( bx , by , bz ) ) 
                     {
                         playerController.buttonPressRegistered();
-                        selectedChunk.setBlockType( bx , by , bz , BlockType.AIR );
+                        selectedChunk.setBlockTypeAndInvalidate( Chunk.blockIndex( bx , by , bz ) , BlockType.AIR );
                         selectedChunk.updateIsEmptyFlag();
                         chunkChanged = true;                            
                     }

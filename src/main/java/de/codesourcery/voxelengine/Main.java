@@ -9,7 +9,7 @@ public class Main
     {
         LwjglApplicationConfiguration config = new LwjglApplicationConfiguration();
         config.useGL30 = true;
-        config.vSyncEnabled = true;
+        config.vSyncEnabled = false;
         config.foregroundFPS=0;
 
         // config.fullscreen=Constants.BENCHMARK_MODE;

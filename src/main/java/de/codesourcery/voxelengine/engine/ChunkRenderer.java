@@ -131,7 +131,7 @@ public class ChunkRenderer implements Disposable
                         final boolean isEmittingLight = BlockType.emitsLight( bt );
                         
                         // TODO: Dirty hack... adding LIGHTLEVEL_MAX if the block itself is emitting light... this is a hint
-                        // TODO: to the shader to ignore the dot product with the normal to the 'sun' and just use the light level as-is
+                        // TODO: to the shader to ignore the dot product with the normal to the 'sun' and just use the block's color as-is
                         final byte emittedLightLevel = isEmittingLight ? (byte) (Chunk.LIGHTLEVEL_MAX + BlockType.getEmittedLightLevel( bt ) ) : (byte) 0 ;
                         if ( hasNoBackNeighbour( x , y , z ) ) 
                         {
