@@ -25,13 +25,6 @@ public class ChunkRenderer implements Disposable
 {
     private static final Logger LOG = Logger.getLogger(ChunkRenderer.class);
 
-    private static final int SIDE_BACK   = 0;
-    private static final int SIDE_FRONT  = 1;
-    private static final int SIDE_LEFT   = 2;
-    private static final int SIDE_RIGHT  = 3;
-    private static final int SIDE_TOP    = 4;
-    private static final int SIDE_BOTTOM = 5;
-
     // TODO: Test code with fixed colors, remove when done
     private static final float[] COLOR_SOLID_1   = new float[] { 0f , 0.5f , 0f , 1 }; // r,g,b,a
     private static final float[] COLOR_SOLID_2   = new float[] { 0 , 1 , 0 , 1 }; // r,g,b,a
@@ -70,11 +63,11 @@ public class ChunkRenderer implements Disposable
     protected static final class Quad
     {
         public float centerX,centerY,centerZ;
-        public int side;
+        public BlockSide side;
         public int blockIndex;
         public float lightLevel;
 
-        public void set(int blockIndex,float centerX,float centerY,float centerZ,int side,float lightLevel) 
+        public void set(int blockIndex,float centerX,float centerY,float centerZ,BlockSide side,float lightLevel) 
         {
             this.centerX = centerX;
             this.centerY = centerY;
@@ -85,7 +78,7 @@ public class ChunkRenderer implements Disposable
         }        
     }
 
-    private void addQuad(int blockIndex,float cx , float cy , float cz,int side, float halfBlockSize,float lightLevel) 
+    private void addQuad(int blockIndex,float cx , float cy , float cz,BlockSide side, float halfBlockSize,float lightLevel) 
     {
         switch( side ) 
         {
@@ -140,7 +133,7 @@ public class ChunkRenderer implements Disposable
                             } else {
                                 lightLevel = z == 0 ? chunk.backNeighbour.getLightLevel( x , y , World.CHUNK_SIZE-1 ) : chunk.getLightLevel( x , y , z-1 );
                             }
-                            addQuad( blockIndex , bx , by , bz , SIDE_BACK , halfBlockSize , lightLevel );
+                            addQuad( blockIndex , bx , by , bz , BlockSide.SIDE_BACK , halfBlockSize , lightLevel );
                         }
                         if ( hasNoFrontNeighbour( x , y , z ) ) 
                         {
@@ -149,7 +142,7 @@ public class ChunkRenderer implements Disposable
                             } else {                            
                                 lightLevel = z == World.CHUNK_SIZE-1 ? chunk.frontNeighbour.getLightLevel( x , y , 0 ) : chunk.getLightLevel( x , y , z+1 );
                             }
-                            addQuad( blockIndex ,bx , by , bz , SIDE_FRONT , halfBlockSize , lightLevel );
+                            addQuad( blockIndex ,bx , by , bz , BlockSide.SIDE_FRONT , halfBlockSize , lightLevel );
                         }
                         if ( hasNoLeftNeighbour( x , y , z ) ) 
                         {
@@ -158,7 +151,7 @@ public class ChunkRenderer implements Disposable
                             } else {                            
                                 lightLevel = x == 0 ? chunk.leftNeighbour.getLightLevel( World.CHUNK_SIZE-1  , y , z ) : chunk.getLightLevel( x-1 , y , z );
                             }
-                            addQuad( blockIndex ,bx , by , bz , SIDE_LEFT , halfBlockSize , lightLevel );
+                            addQuad( blockIndex ,bx , by , bz , BlockSide.SIDE_LEFT , halfBlockSize , lightLevel );
                         }
                         if ( hasNoRightNeighbour( x , y , z ) ) 
                         {
@@ -167,7 +160,7 @@ public class ChunkRenderer implements Disposable
                             } else {
                                 lightLevel = x == World.CHUNK_SIZE-1 ? chunk.rightNeighbour.getLightLevel( 0  , y , z ) : chunk.getLightLevel( x+1 , y , z );
                             }
-                            addQuad( blockIndex ,bx , by , bz , SIDE_RIGHT , halfBlockSize , lightLevel );
+                            addQuad( blockIndex ,bx , by , bz , BlockSide.SIDE_RIGHT , halfBlockSize , lightLevel );
                         }
                         if ( hasNoTopNeighbour( x , y , z ) ) 
                         {
@@ -176,7 +169,7 @@ public class ChunkRenderer implements Disposable
                             } else {                            
                                 lightLevel = y == World.CHUNK_SIZE-1 ? chunk.topNeighbour.getLightLevel( x  , 0 , z ) : chunk.getLightLevel( x , y+1 , z );
                             }
-                            addQuad( blockIndex ,bx , by , bz , SIDE_TOP , halfBlockSize , lightLevel );
+                            addQuad( blockIndex ,bx , by , bz , BlockSide.SIDE_TOP , halfBlockSize , lightLevel );
                         }
                         if ( hasNoBottomNeighbour( x , y , z ) ) 
                         {
@@ -185,7 +178,7 @@ public class ChunkRenderer implements Disposable
                             } else {
                                 lightLevel = y == 0 ? chunk.bottomNeighbour.getLightLevel( x  , World.CHUNK_SIZE-1 , z ) : chunk.getLightLevel( x , y-1 , z );
                             }
-                            addQuad( blockIndex ,bx , by , bz , SIDE_BOTTOM , halfBlockSize , lightLevel );
+                            addQuad( blockIndex ,bx , by , bz , BlockSide.SIDE_BOTTOM , halfBlockSize , lightLevel );
                         }
                     }
                 }
