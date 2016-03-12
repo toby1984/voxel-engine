@@ -9,11 +9,12 @@ import java.awt.GridBagLayout;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Files;
+import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -33,19 +34,27 @@ import javax.swing.filechooser.FileFilter;
 
 import de.codesourcery.voxelengine.blockeditor.BlockTreePanel.MyTreeNode;
 
-public class Main extends JFrame {
-
+public class EditorMain extends JFrame 
+{
+    public static final Path APP_BASE_DIR = Paths.get("/home/tobi/mars_workspace/voxel-engine");
+    
+    public static final Path ASSETS_FOLDER = APP_BASE_DIR.resolve( "assets" );
+    public static final Path TEXTURES_FOLDER = ASSETS_FOLDER.resolve( "textures" );
+    public static final Path ATLAS_OUTPUT_FILE = TEXTURES_FOLDER.resolve( "blocks_atlas.png" );
+    public static final Path BLOCKS_FILE = ASSETS_FOLDER.resolve( "blocks.xml" );
+    public static final Path CODEGEN_OUTPUT_FILE = APP_BASE_DIR.resolve( "src/main/java/de/codesourcery/voxelengine/model/BlockType.java" );
+    
     private final JPanel contentPanel = new JPanel();
     private JPanel content;
     
-    private Path currentAtlasFile;
-    private Path currentFile;
+    private Path currentAtlasFile = ATLAS_OUTPUT_FILE;
+    private Path currentFile = BLOCKS_FILE;
     
     private final BlockTreePanel blockTree = new BlockTreePanel();
     
     public static void main(String[] args) throws IOException 
     {
-        final Main main = new Main();
+        final EditorMain main = new EditorMain();
         final Runnable r = () -> 
         { 
             try {
@@ -57,7 +66,7 @@ public class Main extends JFrame {
         SwingUtilities.invokeLater( r );
     }
     
-    public Main() 
+    public EditorMain() 
     {
         super("Block-Editor v0.0");
         setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
@@ -146,7 +155,27 @@ public class Main extends JFrame {
         }
         
         final CodeGenerator gen = new CodeGenerator();
-        final CharSequence text = gen.generateCode( blockTree.getConfig() );
+        final CharSequence text;
+        
+        Path file = config.codeOutputFile == null ? null : Paths.get(config.codeOutputFile);
+        file = selectJavaFile( true , file );
+        if ( file != null ) 
+        {
+            final String fn = file.toFile().getName();
+            gen.className = fn.contains(".") ? fn.substring( 0 , fn.indexOf('.') ) : fn;
+            text = gen.generateCode( blockTree.getConfig() );
+            try ( PrintWriter out = new PrintWriter( new FileOutputStream( file.toFile() ) ) ) {
+                out.write( text.toString() );
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+            System.out.println("Code written to "+file.getFileName());
+            config.codeOutputFile = file.toFile().getAbsolutePath();
+            blockTree.valueChanged( config , false );
+        } else {
+            System.err.println("No file selected, output will not be written to a file" );
+            text = gen.generateCode( blockTree.getConfig() );
+        }
         
         final JTextArea area = new JTextArea();
         final int size = area.getFont().getSize();
@@ -168,7 +197,7 @@ public class Main extends JFrame {
     
     private void saveTextureAtlas() throws IOException 
     {
-        final Path path = selectFile( true , currentAtlasFile );
+        final Path path = selectAtlasFile( true , currentAtlasFile );
         if ( path == null ) {
             return;
         }
@@ -181,6 +210,8 @@ public class Main extends JFrame {
         {
             ImageIO.write( atlas , "png" , out );
         }
+        
+        System.out.println("Texture atlas written to "+path.getFileName());
         
         currentAtlasFile = path;
         
@@ -217,7 +248,7 @@ public class Main extends JFrame {
     {
         final Path path;
         if ( currentFile == null || alwaysAsk ) {
-            path = selectFile(false , currentFile );
+            path = selectXmlFile(false , currentFile );
         } else {
             path = currentFile;
         }
@@ -227,6 +258,7 @@ public class Main extends JFrame {
             {
                 blockTree.setConfig( new BlockConfigReader().read(  out ) );
                 currentFile=path;
+                System.out.println("Block definitions loaded from "+path.getFileName());
             } catch (IOException e) {
                 e.printStackTrace();
             }            
@@ -237,7 +269,7 @@ public class Main extends JFrame {
     {
         final Path path;
         if ( currentFile == null || alwaysAsk ) {
-            path = selectFile(true , currentFile );
+            path = selectXmlFile(true , currentFile );
         } else {
             path = currentFile;
         }
@@ -247,19 +279,33 @@ public class Main extends JFrame {
             {
                 new BlockConfigWriter().write( this.blockTree.getConfig() , out );
                 currentFile=path;
+                System.out.println("Block definitions saved to "+path.getFileName());
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }   
     
-    private Path selectFile(boolean save,Path currentFile) {
+    private Path selectAtlasFile(boolean save,Path currentFile) {
         
-        final JFileChooser chooser = new JFileChooser();
-        if ( currentFile != null ) {
-            chooser.setSelectedFile( currentFile.toFile() );
-        }
-        chooser.setFileFilter( new FileFilter() {
+        final FileFilter filter =  new FileFilter() {
+            
+            @Override
+            public String getDescription() {
+                return ".png";
+            }
+            
+            @Override
+            public boolean accept(File f) {
+                return f.isDirectory() || f.getName().endsWith(".png");
+            }
+        };
+        return selectFile(save,currentFile,filter );
+    }    
+    
+    private Path selectXmlFile(boolean save,Path currentFile) {
+     
+        final FileFilter filter =  new FileFilter() {
             
             @Override
             public String getDescription() {
@@ -270,7 +316,35 @@ public class Main extends JFrame {
             public boolean accept(File f) {
                 return f.isDirectory() || f.getName().toLowerCase().endsWith(".xml");
             }
-        });
+        };
+        return selectFile(save,currentFile,filter );
+    }
+    
+    private Path selectJavaFile(boolean save,Path currentFile) {
+        
+        final FileFilter filter =  new FileFilter() {
+            
+            @Override
+            public String getDescription() {
+                return ".java";
+            }
+            
+            @Override
+            public boolean accept(File f) {
+                return f.isDirectory() || f.getName().endsWith(".java");
+            }
+        };
+        return selectFile(save,currentFile,filter );
+    }
+    
+    private Path selectFile(boolean save,Path currentFile,FileFilter filter) {
+        
+        final JFileChooser chooser = new JFileChooser();
+        if ( currentFile != null ) {
+            chooser.setCurrentDirectory( currentFile.getParent().toFile() );
+            chooser.setSelectedFile( currentFile.toFile() );
+        }
+        chooser.setFileFilter( filter );
         final int result;
         if ( save ) {
             result = chooser.showSaveDialog( null );
@@ -297,7 +371,11 @@ public class Main extends JFrame {
     
     private void treeSelectionChanged(MyTreeNode node) 
     {
-        System.out.println("Selected: "+node.value);
+        System.out.println("Selected: "+node);
+        if ( node == null || node.value == null ) {
+            changeContent( new JPanel() );
+            return;
+        }
         if ( node.value instanceof BlockDefinition ) 
         {
             final BlockDefinitionPanel newContent = new BlockDefinitionPanel();
@@ -320,10 +398,6 @@ public class Main extends JFrame {
             newContent.setModel( (BlockConfig) node.value );
             changeContent( newContent );
         } 
-        else 
-        {
-            changeContent( new JPanel() );
-        }
     }
     
     private JToolBar createToolbar() 
@@ -377,7 +451,9 @@ public class Main extends JFrame {
     private BlockConfig createNewConfig() 
     {
         final BlockConfig config = new BlockConfig();
-        config.baseDirectory = "/home/tobi/mars_workspace/voxel-engine/assets";
+        
+        config.baseDirectory = EditorMain.TEXTURES_FOLDER.toFile().getAbsolutePath();
+        config.codeOutputFile = EditorMain.CODEGEN_OUTPUT_FILE.toFile().getAbsolutePath();
         config.textureAtlasSize = 1024;
         config.blockTextureSize = 32;
         return config;

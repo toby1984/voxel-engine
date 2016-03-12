@@ -26,6 +26,7 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import de.codesourcery.voxelengine.engine.BlockSide;
+import de.codesourcery.voxelengine.model.BlockType;
 
 public class BlockConfigReader 
 {
@@ -34,6 +35,8 @@ public class BlockConfigReader
      *   <general>
      *     <textureAtlasSize>1024</textureAtlasSize>
      *     <blockTextureSize>32</blockTextureSize>
+     *     <baseDirectory>32</baseDirectory>
+     *     <codeOutputFile>32</codeOutputFile>
      *   </general>
      *   <blocks>
      *     <block type="0" name="air" emitsLight="false" opaque="false" lightLevel="0">
@@ -56,8 +59,9 @@ public class BlockConfigReader
     
     private static final StringMapper<String> STRING_MAPPER = string -> string;
     private static final StringMapper<Integer> INT_MAPPER = string -> Integer.parseInt( string );
-    private static final StringMapper<Float> FLOAT_MAPPER = string -> Float.parseFloat( string );
+    private static final StringMapper<Float> FLOAT_MAPPER = string -> Float.valueOf( string );
     private static final StringMapper<Boolean> BOOLEAN_MAPPER = string -> Boolean.parseBoolean( string );
+    private static final StringMapper<Byte> BYTE_MAPPER = string -> Byte.parseByte( string );
     private static final StringMapper<BlockSide> BLOCKSIDE_MAPPER = string -> BlockSide.fromXmlName( string );
     
     private static final StringMapper<BlockSideDefinition.Rotation> ROTATION_MAPPER = string -> 
@@ -74,12 +78,16 @@ public class BlockConfigReader
     private static final String TEXTURE_ATLAS_SIZE_XPATH = "/blockDefinitions/general/textureAtlasSize";
     private static final String BLOCK_TEXTURE_SIZE_XPATH = "/blockDefinitions/general/blockTextureSize";
     private static final String BASEDIRECTORY_XPATH = "/blockDefinitions/general/baseDirectory";
+    private static final String CODE_OUTPUT_FILE_XPATH = "/blockDefinitions/general/codeOutputFile";
+    
     private static final String BLOCKS_XPATH = "/blockDefinitions/blocks/block";
     private static final String SIDE_XPATH = "side";
     
     private static final XPathExpression textureAtlasSizeExpr;
     private static final XPathExpression blockTextureSizeExpr;
     private static final XPathExpression baseDirectoryExpr;
+    private static final XPathExpression codeOutputFileExpr;
+    
     private static final XPathExpression blocksExpr;
     private static final XPathExpression sideExpr;
     
@@ -98,6 +106,8 @@ public class BlockConfigReader
             textureAtlasSizeExpr = factory.compile( TEXTURE_ATLAS_SIZE_XPATH );
             blockTextureSizeExpr = factory.compile( BLOCK_TEXTURE_SIZE_XPATH );
             baseDirectoryExpr = factory.compile( BASEDIRECTORY_XPATH );
+            codeOutputFileExpr = factory.compile( CODE_OUTPUT_FILE_XPATH );
+            
             blocksExpr = factory.compile( BLOCKS_XPATH );
             sideExpr = factory.compile( SIDE_XPATH );
         } 
@@ -145,15 +155,21 @@ public class BlockConfigReader
         final Document doc = readXml( in );
         
         final BlockConfig result = new BlockConfig();
+        
         result.textureAtlasSize = parseNodeValue( textureAtlasSizeExpr , doc , INT_MAPPER );
         result.blockTextureSize = parseNodeValue( blockTextureSizeExpr , doc , INT_MAPPER );
         result.baseDirectory = parseNodeValue( baseDirectoryExpr , doc , STRING_MAPPER );
+        result.codeOutputFile = parseNodeValue( codeOutputFileExpr , doc , STRING_MAPPER );
         
         parseElements( blocksExpr , doc ).forEach( blockElement -> 
         {
             final String name = blockElement.getAttribute( "name" );
             final int blockType = Integer.parseInt( blockElement.getAttribute( "type" ) );
             final BlockDefinition block = new BlockDefinition( blockType , name );
+            block.opaque = attr( blockElement , "opaque" , BOOLEAN_MAPPER );
+            block.emitsLight = attr( blockElement , "emitsLight" , BOOLEAN_MAPPER ); 
+            block.lightLevel = attr( blockElement , "lightLevel" , BYTE_MAPPER );
+                    
             parseElements( sideExpr , blockElement ).forEach( sideElement -> 
             {
                 final BlockSideDefinition def = new BlockSideDefinition( BLOCKSIDE_MAPPER.map( sideElement.getAttribute("type" ) ) );
@@ -163,7 +179,12 @@ public class BlockConfigReader
                 def.v0 = attr( sideElement , "v0" , FLOAT_MAPPER );
                 def.u1 = attr( sideElement , "u1" , FLOAT_MAPPER );
                 def.v1 = attr( sideElement , "v1" , FLOAT_MAPPER );
-                def.inputTexture = attr( sideElement , "texture" , null , STRING_MAPPER );
+                
+                System.out.println("Side "+def.side+" of "+name+" has (u0,v0) = ("+def.u0+","+def.v0+")");
+                System.out.println("Side "+def.side+" of "+name+" has (u1,v1) = ("+def.u1+","+def.v1+")");
+                def.setInputTexture( attr( sideElement , "texture" , null , STRING_MAPPER ));
+                block.sides[ def.side.ordinal() ] = def;
+                System.out.println("Side "+def.side+" has TEXTURE: "+def.getInputTexture());
             });
             result.blocks.add( block );
         });
@@ -172,6 +193,24 @@ public class BlockConfigReader
         if ( ! result.isValid( res ) ) {
             throw new IOException("File contains invalid configuration");
         }
+        
+        // TODO: Remove debug code
+//        for ( BlockDefinition def : result.blocks ) 
+//        {
+//            for ( BlockSideDefinition s : def.sides ) 
+//            {
+//                float u = BlockType.getU0( def.blockType , s.side );
+//                float v = BlockType.getV0( def.blockType , s.side );
+//                if ( u != s.u0 || v != s.v0 ) {
+//                    throw new RuntimeException("ERROR: Got ("+u+","+v+") but expected ("+s.u0+","+s.v0+") for side "+s.side);
+//                }
+//                u = BlockType.getU1( def.blockType , s.side );
+//                v = BlockType.getV1( def.blockType , s.side );
+//                if ( u != s.u1 || v != s.v1 ) {
+//                    throw new RuntimeException("ERROR: Got ("+u+","+v+") but expected ("+s.u0+","+s.v0+") for side "+s.side);
+//                }                
+//            }
+//        }
         return result;
     }
     

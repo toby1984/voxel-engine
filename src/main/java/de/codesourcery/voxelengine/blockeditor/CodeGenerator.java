@@ -12,7 +12,10 @@ import de.codesourcery.voxelengine.engine.BlockSide;
 public class CodeGenerator 
 {
     // variables to expand
+    private static final String VAR_PACKAGE = "PACKAGE";
+    private static final String VAR_CLASSNAME = "CLASSNAME";
     private static final String VAR_BLOCK_TYPE_IDS = "BLOCK_TYPE_IDS";
+    private static final String VAR_MAX_BLOCK_TYPE= "MAX_BLOCK_TYPE";
     private static final String VAR_UV_COORDINATES = "UV_COORDINATES";
     private static final String VAR_IS_SOLID_BLOCK_SWITCH = "IS_SOLID_BLOCK_SWITCH";
     private static final String VAR_EMITS_LIGHT_SWITCH = "EMITS_LIGHT_SWITCH";
@@ -20,6 +23,8 @@ public class CodeGenerator
     
     private final String codeTemplate;
     
+    public String className = "BlockType2";
+    public String packageName = "de.codesourcery.voxelengine.model";
     public int spacesPerTab=4;
     
     public CodeGenerator() 
@@ -113,15 +118,34 @@ public class CodeGenerator
     
     private CharSequence expandVariable(CharSequence name,BlockConfig config, String indentString) 
     {
-        switch( name.toString() ) {
-            case VAR_BLOCK_TYPE_IDS: return expandBlockTypeIds(config,indentString);
-            case VAR_UV_COORDINATES: return expandUVCoordinates(config,indentString);
-            case VAR_IS_SOLID_BLOCK_SWITCH: return expandIsSolidBlockSwitch(config,indentString);
-            case VAR_EMITS_LIGHT_SWITCH: return expandEmitsLightSwitch(config,indentString);
+        switch( name.toString() ) 
+        {
+            case VAR_CLASSNAME:                  return expandClassname(indentString);
+            case VAR_PACKAGE:                    return expandPackage(indentString);
+            case VAR_BLOCK_TYPE_IDS:             return expandBlockTypeIds(config,indentString);
+            case VAR_MAX_BLOCK_TYPE:             return expandMaxBlockType(config,indentString);
+            case VAR_UV_COORDINATES:             return expandUVCoordinates(config,indentString);
+            case VAR_IS_SOLID_BLOCK_SWITCH:      return expandIsSolidBlockSwitch(config,indentString);
+            case VAR_EMITS_LIGHT_SWITCH:         return expandEmitsLightSwitch(config,indentString);
             case VAR_EMITTED_LIGHT_LEVEL_SWITCH: return expandEmittedLightLevelSwitch(config,indentString);
             default:
                 throw new RuntimeException("Internal error,unhandled variable "+name);
         }
+    }
+    
+    private CharSequence expandMaxBlockType(BlockConfig config,String indentString) 
+    {
+        return Integer.toString( config.blocks.stream().mapToInt( bd -> bd.blockType ).max().orElse(0) );
+    }
+
+    private CharSequence expandClassname(String indentString) 
+    {
+        return className;
+    }    
+    
+    private CharSequence expandPackage(String indentString) 
+    {
+        return packageName;
     }
     
     private CharSequence expandBlockTypeIds(BlockConfig config, String indentString) 
@@ -132,7 +156,7 @@ public class CodeGenerator
             .append( " = " ).append( bd.blockType );
             buffer.append( ";" );                
             if ( ! isLast ) {
-                buffer.append( ";\n" );                
+                buffer.append( "\n" );                
             }
         });
         return buffer;
@@ -146,11 +170,6 @@ public class CodeGenerator
     {
         final StringBuilder buffer = new StringBuilder();
         
-        final BlockSide[] ordered = new BlockSide[ BlockSide.values().length ];
-        for ( int i = 0 , len = BlockSide.values().length ; i < len ; i++ ) {
-            ordered[i] = BlockSide.getByOrdinal( i );
-        }
-        
         final BlockVisitor c = new BlockVisitor() 
         {
             private int floatsThisLine = 0;
@@ -158,16 +177,14 @@ public class CodeGenerator
             @Override
             public void visit(BlockDefinition bd,boolean isFirst,boolean isLast) 
             {
-                for (int i = 0 , len = ordered.length ; i < len ; i++) 
+                for (int i = 0 ; i < 6 ; i++) 
                 {
-                    final boolean lastSide = (i+1) == ordered.length;
-                    final BlockSide bs = ordered[i];
-                    
-                    final BlockSideDefinition def = bd.sides[ bs.ordinal() ];
-                    buffer.append( def.u0 ).append("f,");
-                    buffer.append( def.v0 ).append("f,");
-                    buffer.append( def.u1 ).append("f,");
-                    buffer.append( def.v1 ).append("f");
+                    final boolean lastSide = (i+1) == 6;
+                    final BlockSideDefinition def = bd.sides[ i ];
+                    buffer.append( Float.toString( def.u0 ) ).append("f,");
+                    buffer.append( Float.toString( def.v0 ) ).append("f,");
+                    buffer.append( Float.toString( def.u1 ) ).append("f,");
+                    buffer.append( Float.toString( def.v1 ) ).append("f");
                     floatsThisLine+= 4;
                     if ( floatsThisLine >= 8 ) 
                     {

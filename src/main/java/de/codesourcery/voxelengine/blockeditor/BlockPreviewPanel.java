@@ -74,7 +74,7 @@ public class BlockPreviewPanel extends JPanel
             final TransformingTextureResolver res = new TransformingTextureResolver( this.textureResolver );
             res.setTransform( def );
             try {
-                panel.setImage( res.resolve( def.inputTexture ) );
+                panel.setImage( res.resolve( def.getInputTexture() ) );
             } catch (IOException e) {
                 e.printStackTrace();
             }

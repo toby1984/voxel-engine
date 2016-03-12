@@ -213,8 +213,14 @@ public class BlockTreePanel extends JPanel implements IValueChangedListener<Obje
                 }                
                 final TreeModelEvent ev2 = new TreeModelEvent( this , node.treePath() , childIndices , changedChildren );
                 listeners.forEach( l -> l.treeNodesChanged( ev2 ) );
-            } else {
-                final TreeModelEvent ev = new TreeModelEvent( this , node.parentTreePath() , new int[] { node.childIndex() } , new Object[] { node } );
+            } else 
+            {
+                final TreeModelEvent ev;
+                if ( node == root ) {
+                    ev = new TreeModelEvent( this , node.treePath() );
+                } else {
+                    ev = new TreeModelEvent( this , node.parentTreePath() , new int[] { node.childIndex() } , new Object[] { node } );
+                }
                 listeners.forEach( l -> l.treeNodesChanged( ev ) );
             }
         }
@@ -334,6 +340,8 @@ outer:
                 if ( e.getPath() != null ) 
                 {
                     selectionListener.selectionChanged( (MyTreeNode) e.getPath().getLastPathComponent() );
+                } else {
+                    selectionListener.selectionChanged( null );
                 }
             }
         });
@@ -344,6 +352,8 @@ outer:
     public void setConfig(BlockConfig config) 
     {
         treeModel.populateFrom( config );
+        tree.clearSelection();
+        selectionListener.selectionChanged( null );
     }
     
     public BlockConfig getConfig()
@@ -370,7 +380,7 @@ outer:
                 else if ( node.value instanceof BlockSideDefinition) 
                 {
                     final BlockSideDefinition sideDef = (BlockSideDefinition) node.value;
-                    setText( sideDef.side.xmlName.toUpperCase()+" - "+sideDef.inputTexture );
+                    setText( sideDef.side.xmlName.toUpperCase()+" - "+sideDef.getInputTexture() );
                 }
             }
             return result;
@@ -391,6 +401,11 @@ outer:
     public void valueChanged(Object value, boolean childrenChangedAsWell) 
     {
         treeModel.valueChanged(value, childrenChangedAsWell);
+    }
+    
+    public void clearSelection() {
+        tree.clearSelection();
+        selectionListener.selectionChanged( null );
     }
 
     public void setSelection(BlockDefinition def) 

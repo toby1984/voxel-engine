@@ -18,6 +18,7 @@ public class ShaderManager implements Disposable
     private static final Logger LOG = Logger.getLogger(ShaderManager.class);
 
     public static final String FLAT_SHADER = "phong"; // flatsolid
+    public static final String TEXTURED_SHADER = "textured";
     public static final String WIREFRAME_SHADER = "wireframe";
     public static final String SELECTED_BLOCK_SHADER = "selectedblock";
     public static final String SKYBOX_SHADER = "skybox";

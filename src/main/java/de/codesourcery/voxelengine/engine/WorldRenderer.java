@@ -10,16 +10,16 @@ import org.apache.log4j.Logger;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.GL30;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Frustum;
 import com.badlogic.gdx.math.Plane;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.LongMap;
 import com.badlogic.gdx.utils.LongMap.Entries;
-import com.badlogic.gdx.utils.Queue;
 
-import de.codesourcery.voxelengine.model.BlockKey;
 import de.codesourcery.voxelengine.model.BlockType;
 import de.codesourcery.voxelengine.model.Chunk;
 import de.codesourcery.voxelengine.model.ChunkKey;
@@ -88,15 +88,19 @@ public class WorldRenderer implements Disposable
     private final VertexDataBuffer vertexBuffer = new VertexDataBuffer();
 
     private final SkyBox skyBox;
+    
+    private final Texture blocksTexture;
 
-    public WorldRenderer(World world,ShaderManager shaderManager) 
+    public WorldRenderer(World world,ShaderManager shaderManager,TextureManager textureManager) 
     {
         Validate.notNull(world, "world must not be NULL");
         Validate.notNull(shaderManager,"shaderManager must not be NULL");
+        Validate.notNull(textureManager,"textureManager must not be NULL");
         this.world = world;
         this.player = world.player;
-        this.chunkShader = shaderManager.getShader( RENDER_WIREFRAME ? ShaderManager.WIREFRAME_SHADER : ShaderManager.FLAT_SHADER );
+        this.chunkShader = shaderManager.getShader( RENDER_WIREFRAME ? ShaderManager.WIREFRAME_SHADER : ShaderManager.TEXTURED_SHADER );
         this.skyBox = new SkyBox( shaderManager );
+        this.blocksTexture = textureManager.getTexture( TextureManager.BLOCKS_TEXTUREATLAS );
     }
 
     /**
@@ -302,12 +306,16 @@ public class WorldRenderer implements Disposable
         } else {
             Gdx.gl30.glDisable(GL20.GL_DEPTH_TEST);
         }
+        
+        Gdx.gl30.glEnable( GL20.GL_TEXTURE_2D );
+        
+        blocksTexture.bind();
 
         chunkShader.begin();
 
         if ( ! WorldRenderer.RENDER_WIREFRAME ) {
-            chunkShader.setUniformMatrix("u_modelView", camera.view );
-            chunkShader.setUniformMatrix("u_normalMatrix", player.normalMatrix() );
+//            chunkShader.setUniformMatrix("u_modelView", camera.view );
+//            chunkShader.setUniformMatrix("u_normalMatrix", player.normalMatrix() );
         }
         chunkShader.setUniformMatrix("u_modelViewProjection", camera.combined );
 
@@ -321,7 +329,9 @@ public class WorldRenderer implements Disposable
             }
         }
         this.totalTriangles = totalTriangles;
-        chunkShader.end();        
+        chunkShader.end();   
+        
+        Gdx.gl30.glDisable( GL20.GL_TEXTURE_2D );
     }
     
     private void calculateLighting(Chunk chunk) 

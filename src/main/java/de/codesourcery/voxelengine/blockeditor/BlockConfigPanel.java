@@ -18,6 +18,7 @@ public class BlockConfigPanel extends JPanel
     private final JTextField blockTextureSize = new JTextField();
     private final JTextField textureAtlasSize = new JTextField();
     private final JTextField baseDirectory = new JTextField();
+    private final JTextField codeOutputFile = new JTextField();
     
     public BlockConfigPanel() 
     {
@@ -28,6 +29,10 @@ public class BlockConfigPanel extends JPanel
         // input fields
         addInputField( "Input texture base directory:" , baseDirectory , y ).setColumns( 20 );
         y++;
+        
+        codeOutputFile.setEditable( false );
+        addInputField( "Code output file:" , codeOutputFile , y ).setColumns( 20 );
+        y++;        
         
         addInputField( "Texture atlas size:" , textureAtlasSize , y ).setColumns( 5 );
         y++;
@@ -96,7 +101,13 @@ public class BlockConfigPanel extends JPanel
             baseDirectory.setText( "" );
             textureAtlasSize.setText( "" );
             blockTextureSize.setText("");
+            codeOutputFile.setText("");
         } else {
+            if ( model.codeOutputFile != null ) {
+                codeOutputFile.setText( model.codeOutputFile );
+            } else {
+                codeOutputFile.setText("");
+            }
             if ( model.baseDirectory != null ) {
                 baseDirectory.setText( model.baseDirectory );
             } else {

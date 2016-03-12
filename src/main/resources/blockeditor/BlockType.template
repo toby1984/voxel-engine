@@ -1,4 +1,4 @@
-package de.codesourcery.voxelengine.model;
+package ${PACKAGE};
 
 import de.codesourcery.voxelengine.engine.BlockSide;
 
@@ -9,11 +9,13 @@ import de.codesourcery.voxelengine.engine.BlockSide;
  *
  * @author tobias.gierke@code-sourcery.de
  */
-public final class BlockType 
+public final class ${CLASSNAME} 
 {
     private static final int UV_SIZE_PER_BLOCK_IN_FLOATS = 6*4;
     
     ${BLOCK_TYPE_IDS}
+    
+    public static final int MAX_BLOCK_TYPE = ${MAX_BLOCK_TYPE};
     
     private static final float[] uv = new float[] 
     {
@@ -50,6 +52,22 @@ public final class BlockType
                 throw new RuntimeException("Unhandled case: "+bt);
         }            
     }
+    
+    public static float getU0(int bt,BlockSide side) {
+        return uv[ bt * UV_SIZE_PER_BLOCK_IN_FLOATS + side.ordinal()*4 ];
+    }
+    
+    public static float getV0(int bt,BlockSide side) {
+        return uv[ bt * UV_SIZE_PER_BLOCK_IN_FLOATS + side.ordinal()*4 + 1];
+    }
+    
+    public static float getU1(int bt,BlockSide side) {
+        return uv[ bt * UV_SIZE_PER_BLOCK_IN_FLOATS + side.ordinal()*4 + 2 ];    
+    }
+    
+    public static float getV1(int bt,BlockSide side) {
+        return uv[ bt * UV_SIZE_PER_BLOCK_IN_FLOATS + side.ordinal()*4 + 3 ];     
+    }    
     
     public static byte getEmittedLightLevel(int bt) 
     {

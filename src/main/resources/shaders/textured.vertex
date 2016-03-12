@@ -1,0 +1,23 @@
+#version 330
+
+// per-vertex attributes
+in vec4 v_position;
+in vec3 v_normal;
+in float v_lightLevel; 
+in vec2 v_texCoords;
+      
+// uniforms
+uniform mat4 u_modelViewProjection;
+
+// shader output
+out float lightLevel;
+smooth out vec2 vTexCoords;
+
+void main()                   
+{   
+   gl_Position =  u_modelViewProjection * v_position;
+   
+   lightLevel = v_lightLevel/15.0; // !! DIVIDE BY MAX_LIGHT_LEVEL - make sure it matches max. value defined in Chunk class !!
+   
+   vTexCoords = v_texCoords;
+}

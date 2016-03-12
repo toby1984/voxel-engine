@@ -19,6 +19,7 @@ import de.codesourcery.voxelengine.engine.PlayerController;
 import de.codesourcery.voxelengine.engine.RayMarcher;
 import de.codesourcery.voxelengine.engine.ShaderManager;
 import de.codesourcery.voxelengine.engine.TaskScheduler;
+import de.codesourcery.voxelengine.engine.TextureManager;
 import de.codesourcery.voxelengine.engine.WorldRenderer;
 import de.codesourcery.voxelengine.model.BlockKey;
 import de.codesourcery.voxelengine.model.BlockType;
@@ -47,6 +48,8 @@ public class ApplicationMain implements ApplicationListener {
     private SpriteBatch spriteBatch;
     private BitmapFont font;    
     private final TaskScheduler taskScheduler = new TaskScheduler();
+    
+    private final TextureManager textureManager = new TextureManager();
 
     private final RayMarcher rayMarcher = new RayMarcher();
 
@@ -84,7 +87,7 @@ public class ApplicationMain implements ApplicationListener {
         world.player.setPosition(-115,13,-13);
         world.player.lookAt( -115 , 13 , -200 );
 
-        worldRenderer = new WorldRenderer( world , shaderManager );
+        worldRenderer = new WorldRenderer( world , shaderManager , textureManager );
         playerController = new PlayerController( world.player );
 
         Gdx.input.setInputProcessor( playerController );
@@ -100,6 +103,7 @@ public class ApplicationMain implements ApplicationListener {
         shaderManager.dispose();
         world.dispose();
         worldRenderer.dispose();
+        textureManager.dispose();
     }
 
     @Override
