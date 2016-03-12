@@ -21,6 +21,16 @@ public enum BlockSide
         this.xmlName = xmlName;
     }
     
+    public static BlockSide getByOrdinal(int i) 
+    {
+        for ( BlockSide side : values() ) {
+            if ( side.ordinal() == i ) {
+                return side;
+            }
+        }
+        throw new RuntimeException("Unreachable code reached");
+    }
+    
     public static BlockSide fromXmlName(String name) {
         switch( name ) {
             case "top": return BlockSide.SIDE_TOP;

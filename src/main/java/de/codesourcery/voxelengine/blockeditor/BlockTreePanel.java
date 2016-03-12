@@ -43,6 +43,14 @@ public class BlockTreePanel extends JPanel implements IValueChangedListener<Obje
         public MyTreeNode parent;
         public Object value;
         
+        public TreePath parentTreePath() {
+            return parent.treePath();
+        }
+        
+        public int childCount() {
+            return children.size();
+        }
+        
         public TreePath treePath() 
         {
             final List<Object> elements = new ArrayList<>();
@@ -54,6 +62,24 @@ public class BlockTreePanel extends JPanel implements IValueChangedListener<Obje
             Collections.reverse( elements );
             return new TreePath( elements.toArray(new Object[0]) );
         }
+        
+        public int indexOf(MyTreeNode child) {
+            return children.indexOf( child );
+        }
+        
+        public int childIndex() {
+            return parent.indexOf( this );
+        }
+        
+        public MyTreeNode child(int idx) {
+            return children.get(idx);
+        }
+        
+        public MyTreeNode firstChild() {
+            return child(0);
+        }
+        
+        public boolean hasChildren() { return ! children.isEmpty(); }
         
         public MyTreeNode findValue(Object expected) {
             if ( expected == null ) {
@@ -115,9 +141,14 @@ public class BlockTreePanel extends JPanel implements IValueChangedListener<Obje
         private MyTreeNode createTree(BlockConfig config) 
         {
             final MyTreeNode root = new MyTreeNode();
-            config.blocks.values().forEach( this::createTree ); 
+            root.value = config;
+            config.blocks.forEach( bd -> root.add( createTree(bd) ) ); 
             Collections.sort( root.children , blockOrdering );
             return root;
+        }
+        
+        public MyTreeNode findValue(Object expected ) {
+            return root.findValue( expected );
         }
         
         private MyTreeNode createTree(BlockDefinition blockDef) 
@@ -151,19 +182,41 @@ public class BlockTreePanel extends JPanel implements IValueChangedListener<Obje
         @Override
         public void valueForPathChanged(TreePath path, Object newValue) 
         {
-            treeNodeChanged( path );
+            treeNodeChanged( path , false );
         }
         
         public void structureChanged() {
-            final TreeModelEvent ev = new TreeModelEvent( this , new Object[] { root } );
-            listeners.forEach( l -> l.treeStructureChanged( ev ) );
+            structureChanged( new TreeModelEvent( this , new Object[] { root } ) );
         }
         
-        private void treeNodeChanged(TreePath path) {
-            final TreePath parentPath = path.getParentPath();
-            final int idx = getIndexOfChild( parentPath.getLastPathComponent() , path.getLastPathComponent() );
-            final TreeModelEvent ev = new TreeModelEvent( this , parentPath , new int[] { idx } , new Object[] { path.getLastPathComponent() } );
-            listeners.forEach( l -> l.treeNodesChanged( ev ) );
+        public void structureChanged(TreeModelEvent ev) {
+            listeners.forEach( l -> l.treeStructureChanged( ev ) );
+        }        
+        
+        private void treeNodeChanged(TreePath path,boolean includingChildren) 
+        {
+            final MyTreeNode node = (MyTreeNode) path.getLastPathComponent();
+            
+            if ( includingChildren ) 
+            {
+                // signal parent changed
+                final TreeModelEvent ev1 = new TreeModelEvent( this , node.parentTreePath() , new int[] { node.childIndex() } , new Object[] { node } );
+                listeners.forEach( l -> l.treeNodesChanged( ev1 ) );
+                
+                // signal children changed
+                final int len = node.childCount();
+                final int[] childIndices = new int[ len ];
+                final Object[] changedChildren = new Object[ len ];
+                for ( int i = 0  ; i < len ; i++ ) {
+                    childIndices[i] = i;
+                    changedChildren[i] = node.child(i);
+                }                
+                final TreeModelEvent ev2 = new TreeModelEvent( this , node.treePath() , childIndices , changedChildren );
+                listeners.forEach( l -> l.treeNodesChanged( ev2 ) );
+            } else {
+                final TreeModelEvent ev = new TreeModelEvent( this , node.parentTreePath() , new int[] { node.childIndex() } , new Object[] { node } );
+                listeners.forEach( l -> l.treeNodesChanged( ev ) );
+            }
         }
         
         public void addNode(MyTreeNode parent,MyTreeNode child) 
@@ -236,12 +289,23 @@ outer:
         }
         
         @Override
-        public void valueChanged(Object value) 
+        public void valueChanged(Object value, boolean childrenChangedAsWell) 
         {
             final MyTreeNode node = root.findValue( value );
             if ( node != null ) {
                 System.err.println("Node value changed: "+node.treePath().getLastPathComponent());
-                treeNodeChanged( node.treePath() );
+                
+                final boolean expanded = tree.isExpanded( node.treePath() );
+                treeNodeChanged( node.treePath() , childrenChangedAsWell );
+                
+                if ( expanded ) 
+                {
+                    if ( node.hasChildren() ) {
+                        tree.expandPath( node.firstChild().treePath() );
+                    } else {
+                        tree.expandPath( node.treePath() );
+                    }
+                }
             } else {
                 System.err.println("Failed to find changed node");
             }
@@ -324,8 +388,19 @@ outer:
     }
 
     @Override
-    public void valueChanged(Object value) 
+    public void valueChanged(Object value, boolean childrenChangedAsWell) 
     {
-        treeModel.valueChanged(value);
+        treeModel.valueChanged(value, childrenChangedAsWell);
+    }
+
+    public void setSelection(BlockDefinition def) 
+    {
+        final MyTreeNode node = treeModel.findValue( def );
+        if ( node != null ) 
+        {
+            final MyTreeNode toSelect = node.children.isEmpty() ? node : node.children.get(0);
+            tree.setSelectionPath( toSelect.treePath() );
+            tree.expandPath( toSelect.treePath() );                
+        }
     }
 }

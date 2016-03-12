@@ -38,12 +38,19 @@ public class BlockConfigWriter
         }
     }
 
-    private void populateDocument(BlockConfig config,Document doc) 
+    private void populateDocument(BlockConfig config,Document doc) throws IOException 
     {
+
+        final BlockConfigTextureResolver res = new BlockConfigTextureResolver( config );
+        if ( ! config.isValid( res ) ) {
+            throw new IOException("Refusing to write invalid block config");
+        }
+        
         /* <blockDefinitions>
         *   <general>
         *     <textureAtlasSize>1024</textureAtlasSize>
         *     <blockTextureSize>32</blockTextureSize>
+        *     <baseDirectory>/images</baseDirectory>
         *   </general>
         *   <blocks>
         *     <block type="0" name="air" emitsLight="false" opaque="false" lightLevel="0">
@@ -72,10 +79,16 @@ public class BlockConfigWriter
         general.appendChild( blockTextureSize );
         textureAtlasSize.setTextContent( Integer.toString( config.blockTextureSize ) );
         
+        final Element baseDirectory = doc.createElement( "baseDirectory" );
+        general.appendChild( baseDirectory );
+        if ( config.baseDirectory != null ) {
+            baseDirectory.setTextContent( config.baseDirectory );
+        }
+        
         final Element blocks = doc.createElement( "blocks" );
         root.appendChild( blocks );
         
-        config.blocks.forEach( (typeId,blockDef) -> 
+        config.blocks.forEach( blockDef -> 
         {
             final Element block = doc.createElement( "block" );
             blocks.appendChild( block );

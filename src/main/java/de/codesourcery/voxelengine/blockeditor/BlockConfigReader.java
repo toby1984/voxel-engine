@@ -73,11 +73,13 @@ public class BlockConfigReader
     
     private static final String TEXTURE_ATLAS_SIZE_XPATH = "/blockDefinitions/general/textureAtlasSize";
     private static final String BLOCK_TEXTURE_SIZE_XPATH = "/blockDefinitions/general/blockTextureSize";
+    private static final String BASEDIRECTORY_XPATH = "/blockDefinitions/general/baseDirectory";
     private static final String BLOCKS_XPATH = "/blockDefinitions/blocks/block";
     private static final String SIDE_XPATH = "side";
     
     private static final XPathExpression textureAtlasSizeExpr;
     private static final XPathExpression blockTextureSizeExpr;
+    private static final XPathExpression baseDirectoryExpr;
     private static final XPathExpression blocksExpr;
     private static final XPathExpression sideExpr;
     
@@ -95,6 +97,7 @@ public class BlockConfigReader
         try {
             textureAtlasSizeExpr = factory.compile( TEXTURE_ATLAS_SIZE_XPATH );
             blockTextureSizeExpr = factory.compile( BLOCK_TEXTURE_SIZE_XPATH );
+            baseDirectoryExpr = factory.compile( BASEDIRECTORY_XPATH );
             blocksExpr = factory.compile( BLOCKS_XPATH );
             sideExpr = factory.compile( SIDE_XPATH );
         } 
@@ -144,6 +147,7 @@ public class BlockConfigReader
         final BlockConfig result = new BlockConfig();
         result.textureAtlasSize = parseNodeValue( textureAtlasSizeExpr , doc , INT_MAPPER );
         result.blockTextureSize = parseNodeValue( blockTextureSizeExpr , doc , INT_MAPPER );
+        result.baseDirectory = parseNodeValue( baseDirectoryExpr , doc , STRING_MAPPER );
         
         parseElements( blocksExpr , doc ).forEach( blockElement -> 
         {
@@ -161,10 +165,13 @@ public class BlockConfigReader
                 def.v1 = attr( sideElement , "v1" , FLOAT_MAPPER );
                 def.inputTexture = attr( sideElement , "texture" , null , STRING_MAPPER );
             });
-            if ( result.blocks.put( blockType , block ) != null ) {
-                throw new RuntimeException("Duplicate block type ID: "+blockType);
-            }
+            result.blocks.add( block );
         });
+        
+        final BlockConfigTextureResolver res = new BlockConfigTextureResolver( result );
+        if ( ! result.isValid( res ) ) {
+            throw new IOException("File contains invalid configuration");
+        }
         return result;
     }
     

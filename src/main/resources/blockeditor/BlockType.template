@@ -1,0 +1,63 @@
+package de.codesourcery.voxelengine.model;
+
+import de.codesourcery.voxelengine.engine.BlockSide;
+
+/**
+ * AUTO-GENERATED FILE, DO NOT EDIT.
+ *
+ * Edit BlockType.template file instead !!
+ *
+ * @author tobias.gierke@code-sourcery.de
+ */
+public final class BlockType 
+{
+    private static final int UV_SIZE_PER_BLOCK_IN_FLOATS = 6*4;
+    
+    ${BLOCK_TYPE_IDS}
+    
+    private static final float[] uv = new float[] 
+    {
+      ${UV_COORDINATES} 
+    };
+    
+    public static void getTextureCoordinates(int bt,BlockSide side,float[] destination,int destinationOffset) 
+    {
+        final int ptr = bt *  UV_SIZE_PER_BLOCK_IN_FLOATS + side.ordinal()*4;
+        destination[ destinationOffset   ] = uv[ptr];
+        destination[ destinationOffset+1 ] = uv[ptr+1];
+        destination[ destinationOffset+2 ] = uv[ptr+2];
+        destination[ destinationOffset+3 ] = uv[ptr+3];
+    }
+    
+    public static boolean isSolidBlock(int bt) 
+    {
+        switch(bt) {
+            ${IS_SOLID_BLOCK_SWITCH}
+            default:
+                throw new RuntimeException("Unhandled case: "+bt);
+        }
+    }
+    
+    public static boolean isNonSolidBlock(int bt) {
+        return ! isSolidBlock( bt );
+    }    
+    
+    public static boolean emitsLight(int bt) 
+    {
+        switch(bt) {
+            ${EMITS_LIGHT_SWITCH}
+            default:
+                throw new RuntimeException("Unhandled case: "+bt);
+        }            
+    }
+    
+    public static byte getEmittedLightLevel(int bt) 
+    {
+        switch(bt) 
+        {
+            ${EMITTED_LIGHT_LEVEL_SWITCH}
+            default:
+                throw new RuntimeException("Unhandled case: "+bt);
+        }    
+    }
+}
