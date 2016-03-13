@@ -19,6 +19,7 @@ import com.badlogic.gdx.math.Plane;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.LongMap;
 import com.badlogic.gdx.utils.LongMap.Entries;
+import com.badlogic.gdx.utils.Queue;
 
 import de.codesourcery.voxelengine.model.BlockType;
 import de.codesourcery.voxelengine.model.Chunk;
@@ -35,10 +36,6 @@ import de.codesourcery.voxelengine.utils.IntQueue;
 public class WorldRenderer implements Disposable
 {
     private static final Logger LOG = Logger.getLogger(WorldRenderer.class);
-
-
-    // dummy value used when abusing a Map as a Set
-    private static final Long DUMMY_VALUE = new Long(3L);
 
     public static final int RENDER_DISTANCE_CHUNKS = 3;
 
@@ -59,11 +56,13 @@ public class WorldRenderer implements Disposable
     // TODO: This map should really be just a Set but libgdx doesn't provide this
     private final LongMap<Chunk> visibleChunks = new LongMap<>(100); // populated with the chunk IDs of all chunks that intersect the view frustum
     private final LongMap<Chunk> loadedChunks = new LongMap<>(400); // Holds all chunks that are currently loaded because they're within view distance of the camera
-
+    private final List<Chunk> chunksToRebuild = new ArrayList<>(MAX_CHUNKS_TO_LOAD);
+    
     private Chunk[] visibleChunkList = new Chunk[ MAX_CHUNKS_TO_LOAD ];
     public int visibleChunkCount=0; 
-    
-    private final IntQueue lightQueue = new IntQueue( World.BLOCKS_IN_CHUNK );
+
+    private final Queue<Chunk> lightChunkQueue = new Queue<Chunk>( 65535 );
+    private final IntQueue lightBlockQueue = new IntQueue( World.BLOCKS_IN_CHUNK );
 
     // Comparator used to sort chunks in top->down (+y -> -y ) order for
     // properly calculating the influence of sun light
@@ -88,7 +87,7 @@ public class WorldRenderer implements Disposable
     private final VertexDataBuffer vertexBuffer = new VertexDataBuffer();
 
     private final SkyBox skyBox;
-    
+
     private final Texture blocksTexture;
 
     public WorldRenderer(World world,ShaderManager shaderManager,TextureManager textureManager) 
@@ -270,10 +269,12 @@ public class WorldRenderer implements Disposable
         this.visibleChunkCount = visibleChunkCount;
 
         // sort chunks in descending Y-coordinate order
-        // before propagating sunlight from top -> bottom
+        // in order to propagate sunlight from top -> bottom
         Arrays.sort( visibleChunkList , 0 , visibleChunkCount , Y_COMPARATOR );
 
-        // calculate sunlight
+        chunksToRebuild.clear();
+        
+        // lighting & re-meshing
         for ( int i = 0 ; i < visibleChunkCount ; i++ ) 
         {
             final Chunk chunk = visibleChunkList[i];
@@ -281,14 +282,25 @@ public class WorldRenderer implements Disposable
             {
                 if ( chunk.isNotEmpty() ) 
                 {
-                    calculateLighting( chunk );      
-                    buildMesh( chunk );
-                    chunk.clearFlags( Chunk.FLAG_NEEDS_REBUILD );
+                    chunksToRebuild.add( chunk );
                 } else {
-                	// set light levels even on empty chunks as well since
-                	// (sun)light needs to be propagated to adjacent chunks 
+                    // set light levels even on empty chunks as well since
+                    // (sun)light needs to be propagated to adjacent chunks 
                     chunk.setLightLevel( Chunk.LIGHTLEVEL_SUNLIGHT );
+                    chunk.clearFlags( Chunk.FLAG_NEEDS_REBUILD );
                 }
+            }
+        }
+        
+        if ( ! chunksToRebuild.isEmpty() ) 
+        {
+            calculateLighting( chunksToRebuild );
+            
+            for (int i = 0 , len = chunksToRebuild.size() ; i < len ; i++)
+            {
+                final Chunk chunk = chunksToRebuild.get(i);
+                buildMesh( chunk );
+                chunk.clearFlags( Chunk.FLAG_NEEDS_REBUILD );
             }
         }
 
@@ -306,16 +318,16 @@ public class WorldRenderer implements Disposable
         } else {
             Gdx.gl30.glDisable(GL20.GL_DEPTH_TEST);
         }
-        
+
         Gdx.gl30.glEnable( GL20.GL_TEXTURE_2D );
-        
+
         blocksTexture.bind();
 
         chunkShader.begin();
 
         if ( ! WorldRenderer.RENDER_WIREFRAME ) {
-//            chunkShader.setUniformMatrix("u_modelView", camera.view );
-//            chunkShader.setUniformMatrix("u_normalMatrix", player.normalMatrix() );
+            //            chunkShader.setUniformMatrix("u_modelView", camera.view );
+            //            chunkShader.setUniformMatrix("u_normalMatrix", player.normalMatrix() );
         }
         chunkShader.setUniformMatrix("u_modelViewProjection", camera.combined );
 
@@ -330,14 +342,12 @@ public class WorldRenderer implements Disposable
         }
         this.totalTriangles = totalTriangles;
         chunkShader.end();   
-        
+
         Gdx.gl30.glDisable( GL20.GL_TEXTURE_2D );
     }
-    
-    private void calculateLighting(Chunk chunk) 
+
+    private void applySunlight(Chunk chunk) 
     {
-        lightQueue.clear();
-        
         chunk.setLightLevel( (byte) 0 );
 
         // set light level to "sunlight" on all empty blocks in columns starting from top -> bottom
@@ -350,7 +360,8 @@ public class WorldRenderer implements Disposable
                 {
                     final byte lightLevel = chunk.topNeighbour == null ? Chunk.LIGHTLEVEL_SUNLIGHT : chunk.topNeighbour.getLightLevel(x,0,z);
                     chunk.setLightLevel( x , World.CHUNK_SIZE-1 , z , lightLevel );
-                    lightQueue.push( Chunk.blockIndex( x , World.CHUNK_SIZE-1 , z ) );
+                    lightBlockQueue.push( Chunk.blockIndex( x , World.CHUNK_SIZE-1 , z ) );
+                    lightChunkQueue.addLast( chunk );
                     for ( int y = World.CHUNK_SIZE-2 ; y >= 0 ; y --) 
                     {
                         final int blockIndex = Chunk.blockIndex( x , y , z );
@@ -359,231 +370,169 @@ public class WorldRenderer implements Disposable
                             break;
                         }
                         chunk.setLightLevel( blockIndex , lightLevel );
-                        lightQueue.push( blockIndex );
+                        lightBlockQueue.push( blockIndex );
+                        lightChunkQueue.addLast( chunk );
                     }       
                 }
             }                        
-        }
-        
-        // enqueue all light-emitting (glowing) blocks
-        for ( int blockIndex = 0 ; blockIndex < World.BLOCKS_IN_CHUNK ; blockIndex++ ) 
+        }        
+    }
+
+    /**
+     * Calculates light levels on each (empty) block by performing
+     * a flood-fill starting at each light source.
+     * 
+     * @param chunks
+     */
+    private void calculateLighting(List<Chunk> chunks) 
+    {
+        // algorithm uses two queues (one for blocks and one for the chunk the block is in) 
+        // instead of a single queue and something like a "QueueEntry" class to get around the 
+        // need to do a massive number of object allocations (and thus generate a lot of GC pressure)
+        lightBlockQueue.clear();
+        lightChunkQueue.clear();
+
+        // apply top-down sunlight to all chunks
+        // and enqueue all light-emitting blocks as well
+        for (int i = 0 , len = chunks.size() ; i < len ; i++) 
         {
-            final int bt = chunk.getBlockType( blockIndex );
-            if ( BlockType.emitsLight( bt ) ) {
-                chunk.setLightLevel( blockIndex , BlockType.getEmittedLightLevel( bt ) ); 
-                lightQueue.push( blockIndex );
+            final Chunk chunk = chunks.get(i);
+            applySunlight( chunk );
+
+            // enqueue light-emitting (glowing) blocks
+            for ( int blockIndex = 0 ; blockIndex < World.BLOCKS_IN_CHUNK ; blockIndex++ ) 
+            {
+                final int bt = chunk.getBlockType( blockIndex );
+                if ( BlockType.emitsLight( bt ) ) {
+                    chunk.setLightLevel( blockIndex , BlockType.getEmittedLightLevel( bt ) ); 
+                    lightBlockQueue.push( blockIndex );
+                    lightChunkQueue.addLast( chunk );
+                }
             }
         }
-        
-        // scan sides of this chunk's NEIGHBOUR chunks
-        // and enqueue the index of any block inside the CURRENT chunk
-        // that is adjacent to a light-emitting block.
-        
-        // We'll NOT look at the TOP neighbour again,this has already happened above
-        
-        // bottom of current chunk
-        if ( chunk.bottomNeighbour != null ) 
-        {
-        	final Chunk tmp = chunk.bottomNeighbour;
-	        for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
-	        {
-	        	for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
-	        	{
-	        		final int idx = Chunk.blockIndex( x , World.CHUNK_SIZE-1 , z );
-	        		final int bt = tmp.getBlockType( idx );
-	        		final byte lightLevel = BlockType.emitsLight( bt ) ? BlockType.getEmittedLightLevel( bt ) : tmp.getLightLevel( idx );
-	        		if ( lightLevel > 1 ) 
-	        		{
-	        			final int idx2 = Chunk.blockIndex( x , 0 , z );
-	        			if ( chunk.isBlockEmpty( idx2 ) ) {
-	        				chunk.setLightLevel( idx2 , (byte) (lightLevel - 1 ) );
-	        				lightQueue.push( idx2 );
-	        			}
-	        		}
-	        	}
-	        }
-        }
-        
-        // left of current chunk
-        if ( chunk.leftNeighbour != null ) 
-        {
-        	final Chunk tmp = chunk.leftNeighbour;
-	        for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) 
-	        {
-	        	for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
-	        	{
-	        		final int idx = Chunk.blockIndex( World.CHUNK_SIZE-1 , y, z );
-	        		final int bt = tmp.getBlockType( idx );
-	        		final byte lightLevel = BlockType.emitsLight( bt ) ? BlockType.getEmittedLightLevel( bt ) : tmp.getLightLevel( idx );
-	        		if ( lightLevel > 1 ) 
-	        		{
-	        			final int idx2 = Chunk.blockIndex( 0 , y , z );
-	        			if ( chunk.isBlockEmpty( idx2 ) ) {
-	        				chunk.setLightLevel( idx2 , (byte) (lightLevel - 1 ) );
-	        				lightQueue.push( idx2 );
-	        			}
-	        		}
-	        	}
-	        }
-        } 
-        
-        // right of current chunk
-        if ( chunk.rightNeighbour != null ) 
-        {
-        	final Chunk tmp = chunk.rightNeighbour;
-	        for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) 
-	        {
-	        	for ( int z = 0 ; z < World.CHUNK_SIZE ; z++ ) 
-	        	{
-	        		final int idx = Chunk.blockIndex( 0 , y, z );
-	        		final int bt = tmp.getBlockType( idx );
-	        		final byte lightLevel = BlockType.emitsLight( bt ) ? BlockType.getEmittedLightLevel( bt ) : tmp.getLightLevel( idx );
-	        		if ( lightLevel > 1 ) 
-	        		{
-	        			final int idx2 = Chunk.blockIndex( World.CHUNK_SIZE-1 , y , z );
-	        			if ( chunk.isBlockEmpty( idx2 ) ) {
-	        				chunk.setLightLevel( idx2 , (byte) (lightLevel - 1 ) );
-	        				lightQueue.push( idx2 );
-	        			}
-	        		}
-	        	}
-	        }
-        }   
-        
-        // back of current chunk
-        if ( chunk.backNeighbour != null ) 
-        {
-        	final Chunk tmp = chunk.backNeighbour;
-	        for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
-	        {
-	        	for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) 
-	        	{
-	        		final int idx = Chunk.blockIndex( x , y, World.CHUNK_SIZE-1 );
-	        		final int bt = tmp.getBlockType( idx );
-	        		final byte lightLevel = BlockType.emitsLight( bt ) ? BlockType.getEmittedLightLevel( bt ) : tmp.getLightLevel( idx );
-	        		if ( lightLevel > 1 ) 
-	        		{
-	        			final int idx2 = Chunk.blockIndex( x , y , 0 );
-	        			if ( chunk.isBlockEmpty( idx2 ) ) {
-	        				chunk.setLightLevel( idx2 , (byte) (lightLevel - 1 ) );
-	        				lightQueue.push( idx2 );
-	        			}
-	        		}
-	        	}
-	        }
-        }      
-        
-        // front of current chunk
-        if ( chunk.frontNeighbour != null ) 
-        {
-        	final Chunk tmp = chunk.frontNeighbour;
-	        for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
-	        {
-	        	for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) 
-	        	{
-	        		final int idx = Chunk.blockIndex( x , y, 0 );
-	        		final int bt = tmp.getBlockType( idx );
-	        		final byte lightLevel = BlockType.emitsLight( bt ) ? BlockType.getEmittedLightLevel( bt ) : tmp.getLightLevel( idx );
-	        		if ( lightLevel > 1 ) 
-	        		{
-	        			final int idx2 = Chunk.blockIndex( x , y , World.CHUNK_SIZE-1 );
-	        			if ( chunk.isBlockEmpty( idx2 ) ) {
-	        				chunk.setLightLevel( idx2 , (byte) (lightLevel - 1 ) );
-	        				lightQueue.push( idx2 );
-	        			}
-	        		}
-	        	}
-	        }
-        }         
-        
-        // recursively visit adjacent neighbours around each enqueued block
+
+        // recursively visit adjacent blocks each enqueued block
         // until the light level reaches 0
-        while ( lightQueue.isNotEmpty() ) 
+        while ( lightBlockQueue.isNotEmpty() ) 
         {
-            final int blockIndex = lightQueue.pop();
+            final Chunk chunk = lightChunkQueue.removeFirst();
+            final int blockIndex = lightBlockQueue.pop();
+            
             final int x = Chunk.blockIndexX( blockIndex );
             final int y = Chunk.blockIndexY( blockIndex );
             final int z = Chunk.blockIndexZ( blockIndex );
-            
+
             final byte currentLevel = chunk.getLightLevel( blockIndex );
             final byte newLevel = (byte) (currentLevel - 1);
+
+            Chunk toCheck;
+            int blockIdx; 
+            boolean enqueue;
             
             // check top neighbour
-            if ( (y+1) < World.CHUNK_SIZE ) 
+            if ( (y+1) == World.CHUNK_SIZE ) 
             {
-                final int blockIdx = Chunk.blockIndex(x,y+1,z);
-                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
-                {
-                    chunk.setLightLevel( blockIdx , newLevel );
-                    if ( newLevel > 1 ) {
-                        lightQueue.push( blockIdx );
-                    }
-                }
+                toCheck = chunk.topNeighbour;
+                blockIdx = Chunk.blockIndex(x,0,z);
+                enqueue = toCheck != null && toCheck.isBlockEmpty( blockIdx );
+            } else { // block to check is within current chunk
+                toCheck = chunk;
+                blockIdx = Chunk.blockIndex(x,y+1,z);
+                enqueue = chunk.isBlockEmpty( blockIdx );
+            }
+            if ( enqueue && toCheck.getLightLevel( blockIdx ) < newLevel-1 ) 
+            {
+                doEnqueue(newLevel, toCheck, blockIdx);
             }
             
             // check bottom neighbour
-            if ( (y-1) >= 0 ) 
+            if ( (y-1) < 0 ) 
             {
-                final int blockIdx = Chunk.blockIndex(x,y-1,z);
-                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
-                {
-                    chunk.setLightLevel( blockIdx , newLevel );
-                    if ( newLevel > 1 ) {
-                        lightQueue.push( blockIdx );
-                    }
-                }
-            }   
+                toCheck = chunk.bottomNeighbour;
+                blockIdx = Chunk.blockIndex(x,World.CHUNK_SIZE-1,z);
+                enqueue = toCheck != null && toCheck.isBlockEmpty( blockIdx );
+            } else { // block to check is within current chunk
+                toCheck = chunk;
+                blockIdx = Chunk.blockIndex(x,y-1,z);
+                enqueue = chunk.isBlockEmpty( blockIdx );
+            }
+            if ( enqueue && toCheck.getLightLevel( blockIdx ) < newLevel-1 ) 
+            {
+                doEnqueue(newLevel, toCheck, blockIdx);
+            }            
             
             // check left neighbour
-            if ( (x-1) >= 0 ) 
+            if ( (x-1) < 0 ) 
             {
-                final int blockIdx = Chunk.blockIndex(x-1,y,z);
-                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
-                {
-                    chunk.setLightLevel( blockIdx , newLevel  );
-                    if ( newLevel > 1 ) {
-                        lightQueue.push( blockIdx );
-                    }
-                }
-            }     
+                toCheck = chunk.leftNeighbour;
+                blockIdx = Chunk.blockIndex(World.CHUNK_SIZE-1,y,z);
+                enqueue = toCheck != null && toCheck.isBlockEmpty( blockIdx );
+            } else { // block to check is within current chunk
+                toCheck = chunk;
+                blockIdx = Chunk.blockIndex(x-1,y,z);
+                enqueue = chunk.isBlockEmpty( blockIdx );
+            }
+            if ( enqueue && toCheck.getLightLevel( blockIdx ) < newLevel-1 ) 
+            {
+                doEnqueue(newLevel, toCheck, blockIdx);
+            }  
             
             // check right neighbour
-            if ( (x+1) < World.CHUNK_SIZE ) 
+            if ( (x+1) == World.CHUNK_SIZE ) 
             {
-                final int blockIdx = Chunk.blockIndex(x+1,y,z);
-                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
-                {
-                    chunk.setLightLevel( blockIdx , newLevel  );
-                    if ( newLevel > 1 ) {
-                        lightQueue.push( blockIdx );
-                    }
-                }
-            }    
+                toCheck = chunk.rightNeighbour;
+                blockIdx = Chunk.blockIndex(0,y,z);
+                enqueue = toCheck != null && toCheck.isBlockEmpty( blockIdx );
+            } else { // block to check is within current chunk
+                toCheck = chunk;
+                blockIdx = Chunk.blockIndex(x+1,y,z);
+                enqueue = chunk.isBlockEmpty( blockIdx );
+            }
+            if ( enqueue && toCheck.getLightLevel( blockIdx ) < newLevel-1 ) 
+            {
+                doEnqueue(newLevel, toCheck, blockIdx);
+            }  
             
             // check front neighbour
-            if ( (z+1) < World.CHUNK_SIZE ) 
+            if ( (z+1) == World.CHUNK_SIZE ) 
             {
-                final int blockIdx = Chunk.blockIndex(x,y,z+1);
-                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
-                {
-                    chunk.setLightLevel( blockIdx , newLevel  );
-                    if ( newLevel > 1 ) {
-                        lightQueue.push( blockIdx );
-                    }
-                }
+                toCheck = chunk.frontNeighbour;
+                blockIdx = Chunk.blockIndex(x,y,0);
+                enqueue = toCheck != null && toCheck.isBlockEmpty( blockIdx );
+            } else { // block to check is within current chunk
+                toCheck = chunk;
+                blockIdx = Chunk.blockIndex(x,y,z+1);
+                enqueue = chunk.isBlockEmpty( blockIdx );
+            }
+            if ( enqueue && toCheck.getLightLevel( blockIdx ) < newLevel-1 ) 
+            {
+                doEnqueue(newLevel, toCheck, blockIdx);
             }             
+            
             // check back neighbour
-            if ( (z-1) >= 0 ) 
+            if ( (z-1) < 0 ) 
             {
-                final int blockIdx = Chunk.blockIndex(x,y,z-1);
-                if ( chunk.isBlockEmpty( blockIdx ) && chunk.getLightLevel( blockIdx ) < newLevel-1 ) 
-                {
-                    chunk.setLightLevel( blockIdx , newLevel  );
-                    if ( newLevel > 1 ) {
-                        lightQueue.push( blockIdx );
-                    }
-                }
+                toCheck = chunk.backNeighbour;
+                blockIdx = Chunk.blockIndex(x,y,World.CHUNK_SIZE-1);
+                enqueue = toCheck != null && toCheck.isBlockEmpty( blockIdx );
+            } else { // block to check is within current chunk
+                toCheck = chunk;
+                blockIdx = Chunk.blockIndex(x,y,z-1);
+                enqueue = chunk.isBlockEmpty( blockIdx );
+            }
+            if ( enqueue && toCheck.getLightLevel( blockIdx ) < newLevel-1 ) 
+            {
+                doEnqueue(newLevel, toCheck, blockIdx);
             }             
+        }
+    }
+
+    private void doEnqueue(final byte newLevel, Chunk toCheck, int blockIdx) 
+    {
+        toCheck.setLightLevel( blockIdx , newLevel );
+        if ( newLevel > 1 ) {
+            lightBlockQueue.push( blockIdx );
+            lightChunkQueue.addLast( toCheck );
         }
     }
 
@@ -610,10 +559,10 @@ public class WorldRenderer implements Disposable
     {
         if ( chunk.renderer == null ) 
         {
-            chunk.renderer = new ChunkRenderer();
+            chunk.renderer = new ChunkRenderer(chunk);
         }
         LOG.debug("buildMesh(): Building mesh for "+chunk);
-        chunk.renderer.buildMesh( chunk , vertexBuffer );
+        chunk.renderer.buildMesh( vertexBuffer );
     }
 
     @Override

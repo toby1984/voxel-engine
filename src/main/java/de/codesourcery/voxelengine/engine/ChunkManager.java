@@ -260,33 +260,39 @@ public class ChunkManager implements Disposable
             if ( neighbour != null ) {
                 chunk.backNeighbour = neighbour;
                 neighbour.frontNeighbour = chunk;
+                neighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD ); // flag chunk for rebuilding as lighting does not consider not-loaded chunks so this one needs to be re-calculated as well 
             }
             neighbour = chunks.get( key.frontNeighbour() );
             if ( neighbour != null ) {
                 chunk.frontNeighbour = neighbour;
                 neighbour.backNeighbour = chunk;
+                neighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD ); // flag chunk for rebuilding as lighting does not consider not-loaded chunks so this one needs to be re-calculated as well
             }    
             // left+right
             neighbour = chunks.get( key.leftNeighbour() );
             if ( neighbour != null ) {
                 chunk.leftNeighbour = neighbour;
                 neighbour.rightNeighbour = chunk;
+                neighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD ); // flag chunk for rebuilding as lighting does not consider not-loaded chunks so this one needs to be re-calculated as well
             }
             neighbour = chunks.get( key.rightNeighbour() );
             if ( neighbour != null ) {
                 chunk.rightNeighbour = neighbour;
                 neighbour.leftNeighbour = chunk;
+                neighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD ); // flag chunk for rebuilding as lighting does not consider not-loaded chunks so this one needs to be re-calculated as well
             }         
             // top+bottom
             neighbour = chunks.get( key.topNeighbour() );
             if ( neighbour != null ) {
                 chunk.topNeighbour = neighbour;
                 neighbour.bottomNeighbour = chunk;
+                neighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD ); // flag chunk for rebuilding as lighting does not consider not-loaded chunks so this one needs to be re-calculated as well
             }   
             neighbour = chunks.get( key.bottomNeighbour() );
             if ( neighbour != null ) {
                 chunk.bottomNeighbour = neighbour;
                 neighbour.topNeighbour = chunk;
+                neighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD ); // flag chunk for rebuilding as lighting does not consider not-loaded chunks so this one needs to be re-calculated as well
             }      
         }
     }

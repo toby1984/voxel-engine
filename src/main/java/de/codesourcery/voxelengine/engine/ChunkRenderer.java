@@ -43,7 +43,7 @@ public class ChunkRenderer implements Disposable
     private static final Vector3 NORMAL_BOTTOM  = new Vector3( 0,-1, 0);
 
     // the chunk that should be rendered
-    private Chunk chunk;
+    private final Chunk chunk;
     
     // VBO to hold vertex data
     private VertexBufferObjectWithVAO vbo;
@@ -77,6 +77,10 @@ public class ChunkRenderer implements Disposable
         }        
     }
 
+    public ChunkRenderer(Chunk chunk) {
+        this.chunk = chunk;
+    }
+    
     private void addQuad(int blockIndex,float cx , float cy , float cz,BlockSide side, float halfBlockSize,float lightLevel,int blockType) 
     {
         switch( side ) 
@@ -90,14 +94,13 @@ public class ChunkRenderer implements Disposable
             default:
                 throw new IllegalArgumentException("Unknown side: "+side);
         }
-        addTriangles( tmpQuad , halfBlockSize );
+        addTrianglesForQuad( tmpQuad , halfBlockSize );
     }
 
-    public void buildMesh(Chunk chunk,VertexDataBuffer buffer)
+    public void buildMesh(VertexDataBuffer buffer)
     {
         this.buffer = buffer;
         this.buffer.vertexPtr = 0;
-        this.chunk = chunk;
 
         // for each block, create quads for all block sides that are adjacent 
         // to an empty neighbour block
@@ -215,20 +218,36 @@ public class ChunkRenderer implements Disposable
         }
     }
 
-    private void addTriangles(Quad quad,float halfBlockSize) 
+    private void addTrianglesForQuad(Quad quad,float halfBlockSize) 
     {
         final Vector3 p0 = new Vector3();
         final Vector3 p1 = new Vector3();
         final Vector3 p2 = new Vector3();
         final Vector3 p3 = new Vector3();
         
-        final Vector2 uv0 = new Vector2();
-        final Vector2 uv1 = new Vector2();
+        final Vector2 uvMin = new Vector2();
+        final Vector2 uvMax = new Vector2();
         
-        // TODO: Performance ... maybe add BlockType.getUV0(Vector2 uv); instead ??
-        uv0.set( BlockType.getU0( quad.blockType , quad.side ) , BlockType.getV0( quad.blockType , quad.side ) );
-        uv1.set( BlockType.getU1( quad.blockType , quad.side ) , BlockType.getV1( quad.blockType , quad.side ) );
+        BlockType.getUVMinMax( quad.blockType , quad.side , uvMin , uvMax );
 
+        /* Sides of a quad get subdivided into
+         * 
+         * - triangle t1 (p0-p2-p1)
+         * - triangle t2 (p0-p3-p2)
+         *  
+         * with the following layout:
+         * 
+         *  p1 +------------------+ p2
+         *     |  Triangle t1    *|
+         *     |          * * **  |
+         *     |  *******         |
+         *     |*    Triangle t2  |
+         *  p0 +------------------+ p3
+         *  
+         *  Vertices are added to the vertex array in counter-clockwise
+         *  order which is "front" in terms of backface culling.
+         */
+        final Vector3 normal;
         switch( quad.side ) 
         {
             case SIDE_BACK:  
@@ -236,67 +255,51 @@ public class ChunkRenderer implements Disposable
                 p1.x = quad.centerX + halfBlockSize; p1.y = quad.centerY + halfBlockSize; p1.z = quad.centerZ;
                 p2.x = quad.centerX - halfBlockSize; p2.y = quad.centerY + halfBlockSize; p2.z = quad.centerZ;
                 p3.x = quad.centerX - halfBlockSize; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ;
-                
-                add1stTriangle( p0 , p2 , p1 , NORMAL_BACK , quad.lightLevel, uv0 , uv1);
-                add2ndTriangle( p0 , p3 , p2 , NORMAL_BACK , quad.lightLevel, uv0 , uv1);
-
+                normal = NORMAL_BACK;
                 break;
             case SIDE_FRONT:   
                 p0.x = quad.centerX - halfBlockSize; p0.y = quad.centerY - halfBlockSize; p0.z = quad.centerZ;
                 p1.x = p0.x                        ; p1.y = quad.centerY + halfBlockSize; p1.z = quad.centerZ;
                 p2.x = quad.centerX + halfBlockSize; p2.y = quad.centerY + halfBlockSize; p2.z = quad.centerZ;
                 p3.x = p2.x                        ; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ;
-                
-                add1stTriangle( p0 , p2 , p1 , NORMAL_FRONT , quad.lightLevel, uv0 , uv1);
-                add2ndTriangle( p0 , p3 , p2 , NORMAL_FRONT , quad.lightLevel, uv0 , uv1);
-
+                normal = NORMAL_FRONT;
                 break;
             case SIDE_LEFT:    
                 p0.x = quad.centerX ; p0.y = quad.centerY - halfBlockSize; p0.z = quad.centerZ - halfBlockSize;
                 p1.x = quad.centerX ; p1.y = quad.centerY + halfBlockSize; p1.z = quad.centerZ - halfBlockSize;
                 p2.x = quad.centerX ; p2.y = quad.centerY + halfBlockSize; p2.z = quad.centerZ + halfBlockSize;
                 p3.x = quad.centerX ; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ + halfBlockSize;
-                
-                add1stTriangle( p0 , p2 , p1 , NORMAL_LEFT , quad.lightLevel, uv0 , uv1);
-                add2ndTriangle( p0 , p3 , p2 , NORMAL_LEFT , quad.lightLevel, uv0 , uv1);
-
+                normal = NORMAL_LEFT;
                 break;
             case SIDE_RIGHT:   
                 p0.x = quad.centerX ; p0.y = quad.centerY - halfBlockSize; p0.z = quad.centerZ + halfBlockSize;
                 p1.x = quad.centerX ; p1.y = quad.centerY + halfBlockSize; p1.z = quad.centerZ + halfBlockSize;                
                 p2.x = quad.centerX ; p2.y = quad.centerY + halfBlockSize; p2.z = quad.centerZ - halfBlockSize;
                 p3.x = quad.centerX ; p3.y = quad.centerY - halfBlockSize; p3.z = quad.centerZ - halfBlockSize;
-                
-                add1stTriangle( p0 , p2 , p1 , NORMAL_RIGHT , quad.lightLevel, uv0 , uv1);
-                add2ndTriangle( p0 , p3 , p2 , NORMAL_RIGHT , quad.lightLevel, uv0 , uv1);
-
+                normal = NORMAL_RIGHT;
                 break;
             case SIDE_TOP:     
                 p0.x = quad.centerX - halfBlockSize ; p0.y = quad.centerY ; p0.z = quad.centerZ + halfBlockSize;
                 p1.x = quad.centerX - halfBlockSize ; p1.y = quad.centerY ; p1.z = quad.centerZ - halfBlockSize;
                 p2.x = quad.centerX + halfBlockSize ; p2.y = quad.centerY ; p2.z = quad.centerZ - halfBlockSize;
                 p3.x = quad.centerX + halfBlockSize ; p3.y = quad.centerY ; p3.z = quad.centerZ + halfBlockSize;
-                
-                add1stTriangle( p0 , p2 , p1 , NORMAL_TOP , quad.lightLevel, uv0 , uv1);
-                add2ndTriangle( p0 , p3 , p2 , NORMAL_TOP , quad.lightLevel, uv0 , uv1);
-
+                normal = NORMAL_TOP;
                 break;
             case SIDE_BOTTOM:  
                 p0.x = quad.centerX - halfBlockSize ; p0.y = quad.centerY ; p0.z = quad.centerZ - halfBlockSize;
                 p1.x = quad.centerX - halfBlockSize ; p1.y = quad.centerY ; p1.z = quad.centerZ + halfBlockSize;                
                 p2.x = quad.centerX + halfBlockSize ; p2.y = quad.centerY ; p2.z = quad.centerZ + halfBlockSize;
                 p3.x = quad.centerX + halfBlockSize ; p3.y = quad.centerY ; p3.z = quad.centerZ - halfBlockSize;
-                
-                add1stTriangle( p0 , p2 , p1 , NORMAL_BOTTOM , quad.lightLevel, uv0 , uv1);
-                add2ndTriangle( p0 , p3 , p2 , NORMAL_BOTTOM , quad.lightLevel, uv0 , uv1);
-
+                normal =  NORMAL_BOTTOM;
                 break;
             default:
                 throw new IllegalArgumentException("Unhandled side: "+quad.side);
         }
+        addTopLeftTriangle( p0 , p2 , p1 , normal , quad.lightLevel, uvMin , uvMax);
+        addBottomRightTriangle( p0 , p3 , p2 , normal , quad.lightLevel, uvMin , uvMax);        
     }   
 
-    private void add1stTriangle(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 normal,float lightLevel,Vector2 uv0,Vector2 uv1) 
+    private void addTopLeftTriangle(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 normal,float lightLevel,Vector2 uv0,Vector2 uv1) 
     {
         final int maxSize = buffer.vertexData.length;
         final int bytesAvailable = maxSize - buffer.vertexPtr;
@@ -311,7 +314,7 @@ public class ChunkRenderer implements Disposable
         addVertex( p2 , normal , lightLevel , uv0.x , uv0.y );
     }    
     
-    private void add2ndTriangle(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 normal,float lightLevel,Vector2 uv0,Vector2 uv1) 
+    private void addBottomRightTriangle(Vector3 p0,Vector3 p1,Vector3 p2,Vector3 normal,float lightLevel,Vector2 uv0,Vector2 uv1) 
     {
         final int maxSize = buffer.vertexData.length;
         final int bytesAvailable = maxSize - buffer.vertexPtr;

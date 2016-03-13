@@ -50,7 +50,7 @@ public class Chunk implements Disposable
     
     public static final byte LIGHTLEVEL_MAX = 15; // !!!! Make sure to adjust phong shader when changing the maximum value !!!!
     
-    public static final byte LIGHTLEVEL_SUNLIGHT = 7;
+    public static final byte LIGHTLEVEL_SUNLIGHT = 15;
     
     /**
      * Chunk key.

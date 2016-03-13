@@ -1,5 +1,7 @@
 package de.codesourcery.voxelengine.model;
 
+import com.badlogic.gdx.math.Vector2;
+
 import de.codesourcery.voxelengine.engine.BlockSide;
 
 /**
@@ -36,15 +38,6 @@ public final class BlockType
       0.2529297f,0.2529297f,0.3779297f,0.3779297f,0.37890625f,0.2529297f,0.50390625f,0.3779297f 
     };
     
-    public static void getTextureCoordinates(int bt,BlockSide side,float[] destination,int destinationOffset) 
-    {
-        final int ptr = bt *  UV_SIZE_PER_BLOCK_IN_FLOATS + side.ordinal()*4;
-        destination[ destinationOffset   ] = uv[ptr];
-        destination[ destinationOffset+1 ] = uv[ptr+1];
-        destination[ destinationOffset+2 ] = uv[ptr+2];
-        destination[ destinationOffset+3 ] = uv[ptr+3];
-    }
-    
     public static boolean isSolidBlock(int bt) 
     {
         switch(bt) {
@@ -73,21 +66,22 @@ public final class BlockType
         }            
     }
     
-    public static float getU0(int bt,BlockSide side) {
-        return uv[ bt * UV_SIZE_PER_BLOCK_IN_FLOATS + side.ordinal()*4 ];
+    /**
+     * Returns the min/max texture UV coordinates for a given block type and block side.
+     * 
+     * @param bt
+     * @param side
+     * @param min
+     * @param max
+     */
+    public static void getUVMinMax(int bt,BlockSide side,Vector2 min,Vector2 max) 
+    {
+        final int ptr = bt * UV_SIZE_PER_BLOCK_IN_FLOATS + side.ordinal()*4;
+        min.x = uv[ ptr   ];
+        min.y = uv[ ptr+1 ];
+        max.x = uv[ ptr+2 ];
+        max.y = uv[ ptr+3 ];
     }
-    
-    public static float getV0(int bt,BlockSide side) {
-        return uv[ bt * UV_SIZE_PER_BLOCK_IN_FLOATS + side.ordinal()*4 + 1];
-    }
-    
-    public static float getU1(int bt,BlockSide side) {
-        return uv[ bt * UV_SIZE_PER_BLOCK_IN_FLOATS + side.ordinal()*4 + 2 ];    
-    }
-    
-    public static float getV1(int bt,BlockSide side) {
-        return uv[ bt * UV_SIZE_PER_BLOCK_IN_FLOATS + side.ordinal()*4 + 3 ];     
-    }    
     
     public static byte getEmittedLightLevel(int bt) 
     {
