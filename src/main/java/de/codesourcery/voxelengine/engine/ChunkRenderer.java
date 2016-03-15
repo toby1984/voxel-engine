@@ -352,49 +352,49 @@ public class ChunkRenderer implements Disposable
     private boolean hasNoFrontNeighbour(int blockX,int blockY,int blockZ) 
     {
         if ( blockZ+1 < World.CHUNK_SIZE ) {
-            return chunk.isBlockEmpty( blockX , blockY , blockZ+1 ); 
+            return chunk.hasTransparency( blockX , blockY , blockZ+1 ); 
         }
-        return chunk.frontNeighbour.isBlockEmpty( blockX , blockY , 0 );
+        return chunk.frontNeighbour.hasTransparency( blockX , blockY , 0 );
     }
 
     private boolean hasNoBackNeighbour(int blockX,int blockY,int blockZ) 
     {
         if ( blockZ-1 >= 0 ) {
-            return chunk.isBlockEmpty( blockX , blockY , blockZ-1 ); 
+            return chunk.hasTransparency( blockX , blockY , blockZ-1 ); 
         }
-        return chunk.backNeighbour.isBlockEmpty( blockX , blockY , World.CHUNK_SIZE-1 );
+        return chunk.backNeighbour.hasTransparency( blockX , blockY , World.CHUNK_SIZE-1 );
     }    
 
     private boolean hasNoLeftNeighbour(int blockX,int blockY,int blockZ) 
     {
         if ( blockX-1 >= 0 ) {
-            return chunk.isBlockEmpty( blockX-1 , blockY , blockZ ); 
+            return chunk.hasTransparency( blockX-1 , blockY , blockZ ); 
         }
-        return chunk.leftNeighbour.isBlockEmpty( World.CHUNK_SIZE-1 , blockY , blockZ );
+        return chunk.leftNeighbour.hasTransparency( World.CHUNK_SIZE-1 , blockY , blockZ );
     }    
 
     private boolean hasNoRightNeighbour(int blockX,int blockY,int blockZ) 
     {
         if ( blockX+1 < World.CHUNK_SIZE ) {
-            return chunk.isBlockEmpty( blockX+1 , blockY , blockZ ); 
+            return chunk.hasTransparency( blockX+1 , blockY , blockZ ); 
         }
-        return chunk.rightNeighbour.isBlockEmpty( 0 , blockY , blockZ );
+        return chunk.rightNeighbour.hasTransparency( 0 , blockY , blockZ );
     }   
 
     private boolean hasNoTopNeighbour(int blockX,int blockY,int blockZ) 
     {
         if ( blockY+1 < World.CHUNK_SIZE ) {
-            return chunk.isBlockEmpty( blockX , blockY+1 , blockZ ); 
+            return chunk.hasTransparency( blockX , blockY+1 , blockZ ); 
         }
-        return chunk.topNeighbour.isBlockEmpty( blockX , 0 , blockZ );
+        return chunk.topNeighbour.hasTransparency( blockX , 0 , blockZ );
     }  
 
     private boolean hasNoBottomNeighbour(int blockX,int blockY,int blockZ) 
     {
         if ( blockY-1 >= 0 ) {
-            return chunk.isBlockEmpty( blockX , blockY-1 , blockZ ); 
+            return chunk.hasTransparency( blockX , blockY-1 , blockZ ); 
         }
-        return chunk.bottomNeighbour.isBlockEmpty( blockX , World.CHUNK_SIZE-1 , blockZ );
+        return chunk.bottomNeighbour.hasTransparency( blockX , World.CHUNK_SIZE-1 , blockZ );
     }     
 
     /**

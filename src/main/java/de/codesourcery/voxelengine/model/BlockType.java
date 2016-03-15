@@ -44,7 +44,7 @@ public final class BlockType
             case AIR: return false;
             case SOLID_1: return true;
             case SOLID_2: return true;
-            case GLOWSTONE: return true;
+            case GLOWSTONE: return false;
             default:
                 throw new RuntimeException("Unhandled case: "+bt);
         }

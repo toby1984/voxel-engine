@@ -40,7 +40,7 @@ public class ChunkManager implements Disposable
 {
     private static final Logger LOG = Logger.getLogger(ChunkManager.class);
 
-    public static final boolean CLEAR_CHUNK_DIR_ON_STARTUP = true;
+    public static final boolean CLEAR_CHUNK_DIR_ON_STARTUP = false;
 
     private final File chunkDir;
 
@@ -489,7 +489,7 @@ public class ChunkManager implements Disposable
     {
         if ( key.y <= 0 ) 
         {
-            if ( key.y <= -2 ) {
+            if ( key.y <= -3 ) {
                 return generateSolidChunk(key);
             }
             return generateChunkFromNoise(key);
@@ -562,13 +562,15 @@ public class ChunkManager implements Disposable
         
         ChunkKey.getChunkCenter( key , helper.point );
         helper.point.sub( World.CHUNK_HALF_WIDTH,World.CHUNK_HALF_WIDTH,World.CHUNK_HALF_WIDTH);
-        final float tileSize = 0.7f;
+        final float tileSize = 0.75f;
         final int octaveCount = 2;
         final float persistance = 32f;
         helper.noise.createNoise3D( helper.point.x*tileSize  , helper.point.y*tileSize, helper.point.z*tileSize , World.CHUNK_SIZE,tileSize,octaveCount,persistance, helper.data );
         
         final Chunk chunk = new Chunk(key);
         chunk.setNeedsSave( true );
+        
+        int blockType;
         for ( int x = 0 ; x < World.CHUNK_SIZE ; x++ ) 
         {
             for ( int y = 0 ; y < World.CHUNK_SIZE ; y++ ) 
@@ -581,9 +583,15 @@ public class ChunkManager implements Disposable
                     } else {
                         value = helper.data[ x + y * World.CHUNK_SIZE + z*World.CHUNK_SIZE*World.CHUNK_SIZE] *1.5f;
                     }
-                    if ( value > 0.4f ) 
+                    if ( value > 0.8f ) 
                     {
-                        chunk.setBlockType(x,y,z,BlockType.SOLID_2);
+                        if ( key.y <= -1 ) 
+                        {
+                            blockType = key.y < -1 || (key.y == -1 && y <= 5) ? BlockType.SOLID_1 : BlockType.SOLID_2;
+                        } else {
+                            blockType = BlockType.SOLID_2;
+                        }
+                        chunk.setBlockType(x,y,z,blockType);
                     } 
                 }
             }

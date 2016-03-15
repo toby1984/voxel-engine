@@ -622,6 +622,12 @@ public class Chunk implements Disposable
         return getBlockType( bx , by , bz ) == BlockType.AIR;
     }
     
+    public boolean hasTransparency(int bx,int by,int bz) 
+    {
+        final int bt = getBlockType(bx,by,bz);
+        return bt == BlockType.AIR || BlockType.isNonSolidBlock(bt);
+    }
+    
     public boolean isBlockEmpty(int blockIndex) 
     {
         return blockTypes[ blockIndex ] == BlockType.AIR;

@@ -23,7 +23,7 @@ public class TextureAtlasBuilder
     public BufferedImage build(BlockConfig config,TextureResolver resolver,boolean onlyAssignTextureCoordinates) throws IOException
     {
             // TODO: BufferedImage_TYPE_INT_ARGB assumes pre-multiplied alpha...
-           final BufferedImage atlas = onlyAssignTextureCoordinates ? null : new BufferedImage( config.textureAtlasSize , config.textureAtlasSize , BufferedImage.TYPE_INT_RGB );
+           final BufferedImage atlas = onlyAssignTextureCoordinates ? null : new BufferedImage( config.textureAtlasSize , config.textureAtlasSize , BufferedImage.TYPE_INT_ARGB );
            
            final int atlasW = config.textureAtlasSize;
            final int atlasH = config.textureAtlasSize;

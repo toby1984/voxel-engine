@@ -324,6 +324,9 @@ public class WorldRenderer implements Disposable
 
         Gdx.gl30.glEnable( GL20.GL_TEXTURE_2D );
 
+        Gdx.gl30.glEnable ( GL20.GL_BLEND);
+        Gdx.gl30.glBlendFunc ( GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        
         blocksTexture.bind();
 
         chunkShader.begin();
@@ -347,6 +350,8 @@ public class WorldRenderer implements Disposable
         chunkShader.end();   
 
         Gdx.gl30.glDisable( GL20.GL_TEXTURE_2D );
+        
+        Gdx.gl30.glDisable( GL20.GL_BLEND);
     }
 
     private void applySunlight(Chunk chunk) 

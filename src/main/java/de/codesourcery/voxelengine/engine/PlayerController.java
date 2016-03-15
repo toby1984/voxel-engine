@@ -259,13 +259,11 @@ public class PlayerController extends InputAdapter
             rotateRightPressed = true;
         } else if (keycode == ROTATE_LEFT) {
             rotateLeftPressed = true;
-        } else if ( keycode == Keys.NUM_1 ) {
-            toolbarSlotPressed = 0;
-        } else if ( keycode == Keys.NUM_2 ) {
-            toolbarSlotPressed = 1;
-        } else if ( keycode == Keys.NUM_3 ) {
-            toolbarSlotPressed = 2;
-        }
+        } else if ( keycode == Keys.NUM_0 ) {
+            toolbarSlotPressed = 9;
+        } else if ( keycode >= Keys.NUM_1 && keycode <=Keys.NUM_9) {
+            toolbarSlotPressed = keycode - Keys.NUM_1;
+        } 
         return true;
     }
 
@@ -286,7 +284,7 @@ public class PlayerController extends InputAdapter
             rotateRightPressed = false;
         } else if (keycode == ROTATE_LEFT) {
             rotateLeftPressed = false;
-        } else if ( keycode == Keys.NUM_1 || keycode == Keys.NUM_2 || keycode == Keys.NUM_3 ) {
+        } else if ( keycode >= Keys.NUM_0 && keycode <= Keys.NUM_9 ) {
             toolbarSlotPressed = -1;
         }
         return true;
