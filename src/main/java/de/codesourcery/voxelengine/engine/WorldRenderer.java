@@ -10,7 +10,6 @@ import org.apache.log4j.Logger;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.GL30;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
@@ -46,7 +45,7 @@ public class WorldRenderer implements Disposable
     public static final boolean DEPTH_BUFFER = true;    
     
     public static final float[] HIGHLIGHT_COLOR = new float[] {1,0,0,1};
-    public static final float[] SELECTION_COLOR = new float[] {0,1,0,1};
+    public static final float[] SELECTION_COLOR = new float[] {1,1,1,1};
 
     // Debug renderer
     public static final boolean RENDER_WIREFRAME =false;

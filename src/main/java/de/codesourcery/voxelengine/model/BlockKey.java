@@ -26,11 +26,19 @@ public final class BlockKey
         populateFromID(blockID);
     }
     
+    public BlockKey cpy() {
+        return new BlockKey( x,y,z );
+    }
+    
     public BlockKey(int x, int y, int z) 
     {
         this.x = x;
         this.y = y;
         this.z = z;
+    }
+    
+    public static BlockKey fromID(int blockId) {
+        return new BlockKey(blockId);
     }
     
     public int toID() 

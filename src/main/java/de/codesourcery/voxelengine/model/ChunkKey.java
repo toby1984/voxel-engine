@@ -40,7 +40,7 @@ public final class ChunkKey
         this.y = y;
         this.z = z;
     }
-
+    
     /**
      * Returns the coordinates of this chunk encoded as a 64-bit value.
      * 
@@ -52,7 +52,7 @@ public final class ChunkKey
     public long toID() {
         return toID(x,y,z);
     }
-
+    
     /**
      * Returns the coordinates of this chunk encoded as a 64-bit value.
      * 
@@ -295,7 +295,7 @@ public final class ChunkKey
     public long topNeighbour() {
         return ChunkKey.toID( x , y+1 , z );
     }    
-
+    
     /**
      * Returns the chunk ID of the chunk that is right below this one.
      * 

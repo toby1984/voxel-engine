@@ -112,6 +112,10 @@ public class PlayerController extends InputAdapter
     public boolean buttonPressed() {
         return leftButtonPressed() || rightButtonPressed();
     }    
+    
+    public boolean leftShiftPressed() {
+        return leftShiftPressed;
+    }
 
     /**
      * Apply user input.

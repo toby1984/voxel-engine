@@ -1,17 +1,14 @@
 package de.codesourcery.voxelengine.utils;
 
-import java.util.HashSet;
-import java.util.Set;
+import de.codesourcery.voxelengine.model.BlockKey;
+import de.codesourcery.voxelengine.model.ChunkKey;
 
 /**
  * Keeps track of an arbitrary set of blocks (chunkId+blockId)
- * without requiring any memory allocations (unless the internal arrays need to be grown).
- * 
- * Adding blocks is O(1) while removal and traversal are O(N).
  * 
  * @author tobias.gierke@code-sourcery.de
  */
-public class BlockSelection 
+public class IndividualBlockSelection implements IBlockSelection
 {
 	public int size;
 	
@@ -20,21 +17,16 @@ public class BlockSelection
 	public long[] chunkIds = new long[50];
 	public int[] blockIds = new int[50];
 	
-	@FunctionalInterface
-	public interface SelectionVisitor 
-	{
-		public boolean visit(long chunkId,int blockId);
-	}
-	
 	public void visitSelection(SelectionVisitor visitor) {
 		
 		for ( int i = 0 ,len = size ; i < len ; i++ ) 
 		{
-			if ( ! visitor.visit( chunkIds[i] , blockIds[i] ) )  
-			{
-				return;
-			}
+			visitor.visit( chunkIds[i] , blockIds[i] );  
 		}
+	}
+	
+	public int size() {
+	    return size;
 	}
 	
 	public boolean hasChanged() {
@@ -47,10 +39,13 @@ public class BlockSelection
 	
 	public void set(long chunkId,int blockId) 
 	{
-		chunkIds[0] = chunkId;
-		blockIds[0] = blockId;
-		size=1;
-		selectionChanged = true;		
+	    final boolean changed = size != 1 || chunkIds[0] != chunkId || blockIds[0] != blockId;
+	    if ( changed ) {
+	        chunkIds[0] = chunkId;
+	        blockIds[0] = blockId;
+	        size=1;
+	        selectionChanged = true;
+	    }
 	}
 	
 	public boolean remove(long chunkId,int blockId) 
@@ -73,6 +68,9 @@ public class BlockSelection
 	
 	public void add(long chunkId,int blockId) 
 	{
+	    if ( isPartOfSelection( chunkId ,blockId ) ) {
+	        return;
+	    }
 		if ( size == chunkIds.length ) {
 			final int newLen = chunkIds.length + chunkIds.length/2;
 			long[] tmp1 = new long[ newLen ];
@@ -86,11 +84,16 @@ public class BlockSelection
 		blockIds[size] = blockId;
 		size++;
 		selectionChanged = true;		
+		System.out.println("Selection now has "+size+" blocks: "+chunkId+","+blockId);
 	}
 	
-	public void clear() {
-		size = 0;
-		selectionChanged = true;
+	public void clear() 
+	{
+	    if ( size != 0 ) 
+	    {
+	        size = 0;
+	        selectionChanged = true;
+	    }
 	}
 	
 	public boolean isEmpty() {
@@ -100,4 +103,16 @@ public class BlockSelection
 	public boolean isNotEmpty() {
 		return size != 0 ;
 	}
+
+    @Override
+    public boolean isPartOfSelection(long chunkId, int blockId) 
+    {
+        for ( int i = 0 , len = size ; i < len ; i++ ) 
+        {
+            if ( chunkIds[i] == chunkId && blockIds[i] == blockId ) {
+                return true;
+            }
+        }
+        return false;
+    }    
 }

@@ -6,7 +6,12 @@ import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 
-import de.codesourcery.voxelengine.engine.*;
+import de.codesourcery.voxelengine.engine.BlockSelectionRenderer;
+import de.codesourcery.voxelengine.engine.ChunkManager;
+import de.codesourcery.voxelengine.engine.ShaderManager;
+import de.codesourcery.voxelengine.engine.WorldRenderer;
+import de.codesourcery.voxelengine.utils.CubicBlockSelection;
+import de.codesourcery.voxelengine.utils.IndividualBlockSelection;
 
 public class World implements Disposable
 {
@@ -51,7 +56,9 @@ public class World implements Disposable
     
     public final PerspectiveCamera camera;
     
-    public final BlockSelectionRenderer highlightedBlock;
+    public final BlockSelectionRenderer currentTarget;
+    
+    public final BlockSelectionRenderer currentSelection;
 
     /**
      * Unit-testing only.
@@ -60,7 +67,8 @@ public class World implements Disposable
         this.chunkManager = null;
         this.camera = null;
         this.player = new Player(this,null);
-        this.highlightedBlock = new BlockSelectionRenderer( this , shaderManager , WorldRenderer.HIGHLIGHT_COLOR);
+        this.currentTarget = new BlockSelectionRenderer( this , shaderManager , WorldRenderer.HIGHLIGHT_COLOR, new IndividualBlockSelection() );
+        this.currentSelection = new BlockSelectionRenderer( this , shaderManager , WorldRenderer.SELECTION_COLOR, new CubicBlockSelection() );
     }
     
     public World(ShaderManager shaderManager,ChunkManager chunkManager,PerspectiveCamera camera) 
@@ -69,7 +77,8 @@ public class World implements Disposable
         this.chunkManager = chunkManager;
         this.camera = camera;
         this.player = new Player(this,camera);
-        this.highlightedBlock = new BlockSelectionRenderer( this , shaderManager , WorldRenderer.HIGHLIGHT_COLOR );        
+        this.currentTarget = new BlockSelectionRenderer( this , shaderManager , WorldRenderer.HIGHLIGHT_COLOR , new IndividualBlockSelection() );        
+        this.currentSelection = new BlockSelectionRenderer( this , shaderManager , WorldRenderer.SELECTION_COLOR, new CubicBlockSelection() );
     }
     
     /**
@@ -85,6 +94,6 @@ public class World implements Disposable
 
     @Override
     public void dispose() {
-        highlightedBlock.dispose();
+        currentTarget.dispose();
     }
 }

@@ -15,8 +15,21 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector3;
 
-import de.codesourcery.voxelengine.engine.*;
-import de.codesourcery.voxelengine.model.*;
+import de.codesourcery.voxelengine.engine.ChunkManager;
+import de.codesourcery.voxelengine.engine.PlayerController;
+import de.codesourcery.voxelengine.engine.RayMarcher;
+import de.codesourcery.voxelengine.engine.ShaderManager;
+import de.codesourcery.voxelengine.engine.TaskScheduler;
+import de.codesourcery.voxelengine.engine.TextureManager;
+import de.codesourcery.voxelengine.engine.WorldRenderer;
+import de.codesourcery.voxelengine.model.BlockKey;
+import de.codesourcery.voxelengine.model.BlockType;
+import de.codesourcery.voxelengine.model.Chunk;
+import de.codesourcery.voxelengine.model.ChunkKey;
+import de.codesourcery.voxelengine.model.Item;
+import de.codesourcery.voxelengine.model.World;
+import de.codesourcery.voxelengine.utils.IBlockSelection;
+import de.codesourcery.voxelengine.utils.SelectedBlock;
 
 public class ApplicationMain implements ApplicationListener {
 
@@ -31,6 +44,8 @@ public class ApplicationMain implements ApplicationListener {
     private static final BlockKey TMP_SELECTION = new BlockKey();
     private static final Vector3 TMP1 = new Vector3();
 
+    private final SelectedBlock currentTarget = new SelectedBlock();
+    
     private World world;
     private PerspectiveCamera camera;
     private ChunkManager chunkManager;
@@ -43,10 +58,6 @@ public class ApplicationMain implements ApplicationListener {
     
     private final TextureManager textureManager = new TextureManager();
     
-    // IDs of the currently highlighted block (note that highlight != selection)
-    private long highlightedChunkID = ChunkKey.INVALID;
-    private int highlightedBlockID = BlockKey.INVALID;
-
     private final RayMarcher rayMarcher = new RayMarcher();
 
     @Override
@@ -133,21 +144,32 @@ public class ApplicationMain implements ApplicationListener {
          */
         final Item tool = world.player.toolbar.getSelectedItem();
         final boolean playerCanChangeBlock = tool != null && (tool.canCreateBlock() || tool.canDestroyBlock() );
+
         if ( playerCanChangeBlock ) 
         {
             final Item item = world.player.toolbar.getSelectedItem();
-            world.highlightedBlock.clearSelection();
-            updateSelection( item.canCreateBlock() , item.canDestroyBlock() );
+            final boolean gotTarget = findCurrentTarget( item.canCreateBlock() , item.canDestroyBlock() ,  playerController.leftShiftPressed() && world.currentSelection.hasSelection() );
+            if (  gotTarget ) 
+            {
+                world.currentTarget.setSelected( currentTarget.chunkID , currentTarget.blockID );
+                if ( playerController.leftShiftPressed() ) 
+                {
+                    world.currentSelection.addSelected( currentTarget.chunkID , currentTarget.blockID );
+                } else {
+                    world.currentSelection.clearSelection();
+                }
+            }
         } else {
-            world.highlightedBlock.clearSelection();
+            world.currentTarget.clearSelection();            
         }
 
-        if ( playerCanChangeBlock && playerController.buttonPressed() && world.highlightedBlock.hasSelection() )
+        if ( playerCanChangeBlock && playerController.buttonPressed() && ( world.currentTarget.hasSelection() || world.currentSelection.hasSelection() ) )
         {
+            final IBlockSelection selection = world.currentSelection.hasSelection() ? world.currentSelection.selection : world.currentTarget.selection;
             if ( playerController.leftButtonPressed()  )
             {
-            	final HashSet<Chunk> touchedChunks = new HashSet<Chunk>(world.highlightedBlock.selection.size);
-            	world.highlightedBlock.selection.visitSelection( (chunkID,blockID) -> 
+            	final HashSet<Chunk> touchedChunks = new HashSet<Chunk>( selection.size() );
+            	selection.visitSelection( (chunkID,blockID) -> 
             	{
                     final Chunk selectedChunk = chunkManager.getChunk( chunkID );
                     final int bx = BlockKey.getX( blockID );
@@ -174,11 +196,14 @@ public class ApplicationMain implements ApplicationListener {
                             selectedChunk.setBlockTypeAndInvalidate( Chunk.blockIndex( bx , by , bz ) , BlockType.AIR );
                         }
                     }
-            		return true;
             	});
             	
             	if ( ! touchedChunks.isEmpty() ) 
             	{
+            	    if ( selection == world.currentSelection.selection) 
+            	    {
+            	        selection.clear();
+            	    }
             		touchedChunks.forEach( chunk -> 
             		{
             			if ( tool.canCreateBlock() ) {
@@ -193,7 +218,10 @@ public class ApplicationMain implements ApplicationListener {
         } 
 
         // render selection
-        world.highlightedBlock.render();
+        world.currentSelection.render();
+        
+        // render current target
+        world.currentTarget.render();
 
         if ( RENDER_DEBUG_UI ) {
             renderUI();
@@ -203,7 +231,7 @@ public class ApplicationMain implements ApplicationListener {
         world.player.resetMovementFlags();
     }
 
-    private void updateSelection(boolean canSelectEmpty,boolean canSelectOccupied) 
+    private boolean findCurrentTarget(boolean canSelectEmpty,boolean canSelectOccupied,boolean checkAgainstSelection) 
     {
         if ( canSelectEmpty && canSelectOccupied ) {
         	throw new IllegalArgumentException("Internal error, not implemented - can either select occupied or empty cells but not both");
@@ -212,37 +240,42 @@ public class ApplicationMain implements ApplicationListener {
         	throw new IllegalArgumentException("You need to select either empty or occupied cells");
         }
         
-        setupRayMarching();
+        final IBlockSelection selection = world.currentSelection.selection;
         
-        boolean hitNonEmptyBlock=false;
-        for ( ; rayMarcher.distance < SELECTION_RANGE_IN_BLOCKS * World.BLOCK_SIZE ; rayMarcher.advance() ) { // only try to find selection at most 10 blocks away
-
-            final Chunk chunk = chunkManager.getChunk( rayMarcher.chunkID );
-
-            hitNonEmptyBlock = chunk.isBlockNotEmpty( rayMarcher.block );
-            if ( hitNonEmptyBlock ) 
-            {
-            	if ( canSelectOccupied ) {
-            		world.highlightedBlock.addSelected( rayMarcher.chunkID , rayMarcher.blockID );
-            		return;
-            	}
-            	break;
-            }
-        }
-        
-        if ( hitNonEmptyBlock ) // trace ray back to origin while looking for the first empty block 
+        if ( ! checkAgainstSelection ) 
         {
-        	while ( rayMarcher.distance > 0 ) 
-        	{
-        		rayMarcher.stepBack();
-        		final Chunk chunk = chunkManager.getChunk( rayMarcher.chunkID );
-        		if ( chunk.isBlockEmpty( rayMarcher.block ) ) 
-        		{
-            		world.highlightedBlock.addSelected( rayMarcher.chunkID , rayMarcher.blockID );
-            		return;
-        		}
-        	}
-        }
+            setupRayMarching();
+            
+            boolean hitNonEmptyBlock=false;
+            for ( ; rayMarcher.distance < SELECTION_RANGE_IN_BLOCKS * World.BLOCK_SIZE ; rayMarcher.advance() ) { // only try to find selection at most 10 blocks away
+    
+                final Chunk chunk = chunkManager.getChunk( rayMarcher.chunkID );
+    
+                hitNonEmptyBlock = chunk.isBlockNotEmpty( rayMarcher.block );
+                if ( hitNonEmptyBlock ) 
+                {
+                	if ( canSelectOccupied ) {
+                	    currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
+                		return true;
+                	}
+                	break;
+                }
+            }
+            
+            if ( hitNonEmptyBlock ) // trace ray back to origin while looking for the first empty block 
+            {
+            	while ( rayMarcher.distance > 0 ) 
+            	{
+            		rayMarcher.stepBack();
+            		final Chunk chunk = chunkManager.getChunk( rayMarcher.chunkID );
+            		if ( chunk.isBlockEmpty( rayMarcher.block ) ) 
+            		{
+                		currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
+                		return true;
+            		}
+            	}
+            }
+        } 
         
         // forward tracing didn't hit any block within selection range,
         // try again but look for a non-empty neighbouring block instead
@@ -258,10 +291,10 @@ public class ApplicationMain implements ApplicationListener {
             {
                 chunk = chunk.leftNeighbour;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ) )
             {
-                world.highlightedBlock.addSelected( rayMarcher.chunkID , rayMarcher.blockID );
-                break;
+                currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
+                return true;
             }
             // check right neighbour
             if ( TMP_SELECTION.rightOf( rayMarcher.block) ) 
@@ -269,10 +302,10 @@ public class ApplicationMain implements ApplicationListener {
                 chunk = chunk.rightNeighbour;
                 TMP_SELECTION.x = 0;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ))
             {
-                world.highlightedBlock.addSelected( rayMarcher.chunkID , rayMarcher.blockID );
-                break;
+                currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
+                return true;
             }   
             // check top neighbour
             if ( TMP_SELECTION.topOf( rayMarcher.block ) )
@@ -280,10 +313,10 @@ public class ApplicationMain implements ApplicationListener {
                 chunk = chunk.topNeighbour;
                 TMP_SELECTION.y = 0;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ))
             {
-                world.highlightedBlock.addSelected( rayMarcher.chunkID , rayMarcher.blockID );
-                break;
+                currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
+                return true;
             }         
             // check bottom neighbour
             if ( TMP_SELECTION.bottomOf( rayMarcher.block ) ) 
@@ -291,10 +324,10 @@ public class ApplicationMain implements ApplicationListener {
                 chunk = chunk.bottomNeighbour;
                 TMP_SELECTION.y = World.CHUNK_SIZE-1;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ))
             {
-                world.highlightedBlock.addSelected( rayMarcher.chunkID , rayMarcher.blockID );
-                break;
+                currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
+                return true;
             }                
             // check back neighbour
             if ( TMP_SELECTION.backOf( rayMarcher.block ) ) 
@@ -302,10 +335,10 @@ public class ApplicationMain implements ApplicationListener {
                 chunk = chunk.backNeighbour;
                 TMP_SELECTION.z = World.CHUNK_SIZE-1;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ))
             {
-                world.highlightedBlock.addSelected( rayMarcher.chunkID , rayMarcher.blockID );
-                break;
+                currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
+                return true;
             }    
             // check front neighbour
             if ( TMP_SELECTION.frontOf( rayMarcher.block ) )
@@ -313,14 +346,16 @@ public class ApplicationMain implements ApplicationListener {
                 chunk = chunk.frontNeighbour;
                 TMP_SELECTION.z = 0;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ))
             {
-                world.highlightedBlock.addSelected( rayMarcher.chunkID , rayMarcher.blockID );
-                break;
+                currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
+                return true;
             }                 
         }        
+        currentTarget.invalidate();
+        return false;
     }
-
+    
 	private void setupRayMarching() 
 	{
 		// "aiming" starts at center of screen
@@ -373,11 +408,11 @@ public class ApplicationMain implements ApplicationListener {
         y -= fontHeight;
         font.draw(spriteBatch, append("Total triangles: ",worldRenderer.totalTriangles), 10, y );  
         
-        if ( world.highlightedBlock.hasSelection() ) 
+        if ( currentTarget.isValid() ) 
         {
             y -= fontHeight;
-            final long chunkID = world.highlightedBlock.selection.chunkIds[0];
-            final int blockID = world.highlightedBlock.selection.blockIds[0];
+            final long chunkID = currentTarget.chunkID;
+            final int blockID = currentTarget.blockID;
             font.draw(spriteBatch, append("Selection: ",chunkID,blockID) , 10, y );
             y -= fontHeight;
             final int bx = BlockKey.getX( blockID );

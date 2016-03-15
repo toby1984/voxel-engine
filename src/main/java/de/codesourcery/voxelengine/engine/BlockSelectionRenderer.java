@@ -1,7 +1,11 @@
 package de.codesourcery.voxelengine.engine;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.Camera;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.GL30;
+import com.badlogic.gdx.graphics.VertexAttribute;
+import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.VertexAttributes.Usage;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.VertexBufferObjectWithVAO;
@@ -10,8 +14,8 @@ import com.badlogic.gdx.utils.Disposable;
 
 import de.codesourcery.voxelengine.model.BlockKey;
 import de.codesourcery.voxelengine.model.World;
-import de.codesourcery.voxelengine.utils.BlockSelection;
-import de.codesourcery.voxelengine.utils.BlockSelection.SelectionVisitor;
+import de.codesourcery.voxelengine.utils.IBlockSelection;
+import de.codesourcery.voxelengine.utils.IBlockSelection.SelectionVisitor;
 
 /**
  * Used to track and highlight the currently selected block (if any).
@@ -28,12 +32,12 @@ public class BlockSelectionRenderer implements Disposable
     
     private VertexBufferObjectWithVAO vbo;
     
-    public final BlockSelection selection = new BlockSelection();
+    public final IBlockSelection selection;
     
     private final ShaderProgram shader;
     
     private int vertexPtr;
-    private final float[] vertexData = new float[6 * 8 * VERTEX_FLOAT_SIZE];
+    private float[] vertexData = new float[6 * 8 * VERTEX_FLOAT_SIZE];
     
     private final Camera camera;
     
@@ -53,7 +57,7 @@ public class BlockSelectionRenderer implements Disposable
     	private final Vector3 tmp = new Vector3();
     	
 		@Override
-		public boolean visit(long chunkID, int blockID) 
+		public void visit(long chunkID, int blockID) 
 		{
 	        final Vector3 center = BlockKey.getBlockCenter( chunkID , blockID , tmp );
 	        
@@ -73,9 +77,7 @@ public class BlockSelectionRenderer implements Disposable
 	        addQuad(p4,p0,p3,p7); // left
 	        addQuad(p4,p5,p1,p0); // bottom
 	        addQuad(p5,p4,p7,p6); // back			
-			return true;
-		}
-    	
+		}    	
     };
     
     /**
@@ -84,10 +86,11 @@ public class BlockSelectionRenderer implements Disposable
      * @param shaderManager
      * @param outlineColor RGBA outline color (each component is 0..1) 
      */
-    public BlockSelectionRenderer(World world,ShaderManager shaderManager,float[] outlineColor) 
+    public BlockSelectionRenderer(World world,ShaderManager shaderManager,float[] outlineColor,IBlockSelection selection) 
     {
         this.shader = shaderManager.getShader( ShaderManager.SELECTED_BLOCK_SHADER );
         this.camera = world.camera;
+        this.selection = selection;
         System.arraycopy( outlineColor , 0 , this.outlineColor , 0 , 4 );
     }
     
@@ -107,14 +110,19 @@ public class BlockSelectionRenderer implements Disposable
     
     private void updateVBO() 
     {
-    	vertexPtr = 0;
-    	try {
+    	try 
+    	{
+    	    vertexPtr = 0;
     		selection.visitSelection( selectionVisitor );
 
-    		if ( vbo == null ) 
+    		if ( vbo == null || vbo.getNumMaxVertices() < vertexPtr ) 
     		{
+    		    if ( vbo != null ) {
+    		        vbo.dispose();
+    		    }
     			vbo = new VertexBufferObjectWithVAO(false,vertexPtr/VERTEX_FLOAT_SIZE,VERTEX_ATTRIBUTES);
     		}
+    		System.out.println("Setting "+vertexPtr/VERTEX_FLOAT_SIZE+" vertices");
     		vbo.setVertices( vertexData , 0 , vertexPtr );
     	} finally {
     		selection.resetChanged();
@@ -138,6 +146,12 @@ public class BlockSelectionRenderer implements Disposable
     private void addVertex(Vector3 p) 
     {
         int ptr=vertexPtr;
+        
+        if ( ptr+3 >= vertexData.length ) {
+            final float[] tmp = new float[ vertexData.length + vertexData.length/2 ];
+            System.arraycopy( vertexData , 0 , tmp , 0 , vertexPtr );
+            vertexData = tmp;
+        }
         
         vertexData[ptr]   = p.x;
         vertexData[ptr+1] = p.y;
