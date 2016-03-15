@@ -6,9 +6,7 @@ import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 
-import de.codesourcery.voxelengine.engine.ChunkManager;
-import de.codesourcery.voxelengine.engine.SelectedBlock;
-import de.codesourcery.voxelengine.engine.ShaderManager;
+import de.codesourcery.voxelengine.engine.*;
 
 public class World implements Disposable
 {
@@ -53,7 +51,7 @@ public class World implements Disposable
     
     public final PerspectiveCamera camera;
     
-    public final SelectedBlock selectedBlock;
+    public final BlockSelectionRenderer highlightedBlock;
 
     /**
      * Unit-testing only.
@@ -62,7 +60,7 @@ public class World implements Disposable
         this.chunkManager = null;
         this.camera = null;
         this.player = new Player(this,null);
-        this.selectedBlock = new SelectedBlock( this , shaderManager );
+        this.highlightedBlock = new BlockSelectionRenderer( this , shaderManager , WorldRenderer.HIGHLIGHT_COLOR);
     }
     
     public World(ShaderManager shaderManager,ChunkManager chunkManager,PerspectiveCamera camera) 
@@ -71,7 +69,7 @@ public class World implements Disposable
         this.chunkManager = chunkManager;
         this.camera = camera;
         this.player = new Player(this,camera);
-        this.selectedBlock = new SelectedBlock( this , shaderManager );        
+        this.highlightedBlock = new BlockSelectionRenderer( this , shaderManager , WorldRenderer.HIGHLIGHT_COLOR );        
     }
     
     /**
@@ -87,6 +85,6 @@ public class World implements Disposable
 
     @Override
     public void dispose() {
-        selectedBlock.dispose();
+        highlightedBlock.dispose();
     }
 }

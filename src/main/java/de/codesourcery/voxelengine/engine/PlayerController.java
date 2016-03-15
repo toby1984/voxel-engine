@@ -50,6 +50,7 @@ public class PlayerController extends InputAdapter
     
     private int toolbarSlotPressed=-1;
     
+    private boolean leftShiftPressed;
     private boolean forwardPressed;
     private boolean backwardPressed;
     
@@ -242,7 +243,9 @@ public class PlayerController extends InputAdapter
     @Override
     public boolean keyDown (int keycode) 
     {
-        if ( keycode == Keys.ESCAPE ) {
+    	if ( keycode == Keys.SHIFT_LEFT ) {
+    		leftShiftPressed = true;
+    	} else if ( keycode == Keys.ESCAPE ) {
             Gdx.input.setCursorCatched( false );
         } else if (keycode == LEFT ) {
             leftPressed = true;
@@ -269,7 +272,9 @@ public class PlayerController extends InputAdapter
     @Override
     public boolean keyUp (int keycode) 
     {
-        if (keycode == LEFT ) {
+    	if ( keycode == Keys.SHIFT_LEFT ) {
+    		leftShiftPressed = false;
+    	} else if (keycode == LEFT ) {
             leftPressed = false;
         } else if ( keycode == RIGHT ) {
             rightPressed = false;

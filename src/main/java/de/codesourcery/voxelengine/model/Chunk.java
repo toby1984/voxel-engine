@@ -119,22 +119,14 @@ public class Chunk implements Disposable
     {
         if ( obj instanceof Chunk ) 
         {
-            final Chunk o = (Chunk) obj;
-            if ( ! Objects.equals( this.chunkKey , o.chunkKey ) ) {
-                return false;
-            }
-            if ( this.flags != o.flags ) {
-                return false;
-            }
-            if ( ! Objects.equals( this.center , o.center ) ) {
-                return false;
-            }
-            if ( ! Arrays.equals( this.blockTypes , ((Chunk) obj).blockTypes ) ) {
-                return false;
-            }
-            return true;
+            return this.chunkKey.equals( ((Chunk) obj).chunkKey );
         }
         return false;
+    }
+    
+    @Override
+    public int hashCode() {
+    	return this.chunkKey.hashCode();
     }
     
     /**

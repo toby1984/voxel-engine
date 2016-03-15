@@ -583,7 +583,7 @@ public class ChunkManager implements Disposable
                     }
                     if ( value > 0.4f ) 
                     {
-                        chunk.setBlockType(x,y,z,BlockType.SOLID_1);
+                        chunk.setBlockType(x,y,z,BlockType.SOLID_2);
                     } 
                 }
             }

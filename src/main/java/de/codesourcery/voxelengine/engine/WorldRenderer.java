@@ -44,6 +44,9 @@ public class WorldRenderer implements Disposable
     public static final boolean CULL_FACES = true;
 
     public static final boolean DEPTH_BUFFER = true;    
+    
+    public static final float[] HIGHLIGHT_COLOR = new float[] {1,0,0,1};
+    public static final float[] SELECTION_COLOR = new float[] {0,1,0,1};
 
     // Debug renderer
     public static final boolean RENDER_WIREFRAME =false;

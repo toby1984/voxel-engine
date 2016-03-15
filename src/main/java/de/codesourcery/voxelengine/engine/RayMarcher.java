@@ -64,4 +64,16 @@ public class RayMarcher {
         } 
         setBlock();
     }
+    
+    public void stepBack() 
+    {
+        currentPoint.sub( step );
+        distance -= STEP_INC;
+        
+        final long newChunkID = ChunkKey.getChunkID( currentPoint );
+        if ( newChunkID != chunkID ) {
+            setChunk();
+        } 
+        setBlock();
+    }    
 }
