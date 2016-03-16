@@ -176,6 +176,7 @@ public class ApplicationMain implements ApplicationListener {
                     final int by = BlockKey.getY( blockID );
                     final int bz = BlockKey.getZ( blockID );
 
+                    boolean blockChanged = false;
                     if ( tool.canCreateBlock() ) 
                     {
                         if ( selectedChunk.isBlockEmpty( bx , by , bz ) ) 
@@ -184,6 +185,7 @@ public class ApplicationMain implements ApplicationListener {
                             if ( tool.createBlock( selectedChunk ,  bx , by , bz ) ) 
                             {
                             	touchedChunks.add( selectedChunk );
+                            	blockChanged = true;
                             }
                         }
                     } 
@@ -194,7 +196,26 @@ public class ApplicationMain implements ApplicationListener {
                             playerController.buttonPressRegistered();
                             touchedChunks.add( selectedChunk );                            
                             selectedChunk.setBlockTypeAndInvalidate( Chunk.blockIndex( bx , by , bz ) , BlockType.AIR );
+                            blockChanged = true;
                         }
+                    }
+                    if ( blockChanged ) 
+                    {
+                        if ( bx == 0 ) {
+                            selectedChunk.leftNeighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD );
+                        } else if ( bx == World.CHUNK_SIZE-1 ) {
+                            selectedChunk.rightNeighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD );
+                        }
+                        if ( by == 0 ) {
+                            selectedChunk.bottomNeighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD );
+                        } else if ( by == World.CHUNK_SIZE -1 ) {
+                            selectedChunk.topNeighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD );
+                        }
+                        if ( bz == 0 ) {
+                            selectedChunk.backNeighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD );
+                        } else if ( bz == World.CHUNK_SIZE -1 ) {
+                            selectedChunk.frontNeighbour.setFlags( Chunk.FLAG_NEEDS_REBUILD );
+                        }                        
                     }
             	});
             	

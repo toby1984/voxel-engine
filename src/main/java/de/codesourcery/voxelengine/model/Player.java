@@ -21,7 +21,7 @@ public class Player
     /**
      * Used to disable gravity during player movement.
      */
-    public static final boolean CAMERA_MODE_FLYING = false;
+    public static final boolean CAMERA_MODE_FLYING = true;
     
     private static final Vector3 GRAVITY = new Vector3(0,-5f,0);
     private static final Vector3 INV_GRAVITY = new Vector3(0,-GRAVITY.y,0);

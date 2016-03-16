@@ -122,7 +122,6 @@ public class BlockSelectionRenderer implements Disposable
     		    }
     			vbo = new VertexBufferObjectWithVAO(false,vertexPtr/VERTEX_FLOAT_SIZE,VERTEX_ATTRIBUTES);
     		}
-    		System.out.println("Setting "+vertexPtr/VERTEX_FLOAT_SIZE+" vertices");
     		vbo.setVertices( vertexData , 0 , vertexPtr );
     	} finally {
     		selection.resetChanged();
