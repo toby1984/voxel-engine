@@ -15,28 +15,28 @@ public class Player
      * Height of player's bounding box (player footprint is always one block).
      */
     public static float PLAYER_HEIGHT = 1.5f*World.BLOCK_SIZE;
-    public static float MAX_VELOCITY= 5f;
     
     private final Vector3 feetPosition2 = new Vector3();
-    
-    // used to hold temporary calculation results without needing to
-    // allocate an object (and thus increase GC pressure) 
-    private static final BlockKey block = new BlockKey();
     
     /**
      * Used to disable gravity during player movement.
      */
-    public static final boolean CAMERA_MODE_FLYING = true;
+    public static final boolean CAMERA_MODE_FLYING = false;
     
-    /**
-     * Player Y position is adjusted by deltaTime * COLLISION_Y_ADJUST
-     * when he/she is either floating in the air or either head or feet are inside a block.
-     */
-    public static final float COLLISION_Y_ADJUST = 5f;
+    private static final Vector3 GRAVITY = new Vector3(0,-5f,0);
+    private static final Vector3 INV_GRAVITY = new Vector3(0,-GRAVITY.y,0);
     
+    private static final float SPEED_LIMIT = 5f;
+    
+    private final Vector3 tmp = new Vector3();
+    private final Vector3 tmp2 = new Vector3();
+    private final Vector3 tmp3 = new Vector3();
     
     // the player's current velocity
     public final Vector3 velocity= new Vector3();
+    
+    public final Vector3 playerAcceleration = new Vector3();
+    public final Vector3 gravityCompensation = new Vector3( INV_GRAVITY );
     
     // matrix used to transform normal vectors into view space
     // (=inverse transpose of camera view matrix)
@@ -48,6 +48,8 @@ public class Player
     
     public boolean playerTranslated = true; // set to true to force initialization
     public boolean playerRotated = true; // set to true to force initialization
+    
+    public boolean isFallingDown;
     
     public long cameraChunkID;
     
@@ -114,57 +116,76 @@ public class Player
      */
     private void handleGravity(float delta) 
     {
-        final Vector3 headPosition = camera.position;
-        final Vector3 feetPosition = feetPosition();
-        final Chunk headChunk = world.getWorldChunk( headPosition );
-        int blockType = headChunk.getBlockType( headChunk.blockIndex( headPosition ) );
-        if ( blockType != BlockType.AIR ) { // head is blocked, move up
-            headPosition.y += delta * 5f;
-            playerTranslated=true;
-            return;
-        } 
+    	// check whether the block 1/2 blocks below the current feet position
+    	// is empty (and thus we need to fall down)
+    	tmp.set( feetPosition() );
+    	tmp.y -= World.HALF_BLOCK_SIZE;
         
-        Chunk feetChunk = world.getWorldChunk( feetPosition );
-        feetChunk.getBlockKey( feetPosition , block );
+        final Chunk chunk = world.getWorldChunk( tmp );
+        final boolean feetBlockEmpty = chunk.isBlockEmpty( tmp );  
         
-        blockType = feetChunk.getBlockType( feetChunk.blockIndex( feetPosition ) );
-        if ( blockType != BlockType.AIR ) { // feet are blocked, move up
-            final float blockTopY = feetChunk.center.y - World.CHUNK_HALF_WIDTH + block.y * World.BLOCK_SIZE;
-            float deltaY = Math.abs( feetPosition.y - blockTopY );
-            if ( deltaY > 0.05f) {
-                headPosition.y += delta * COLLISION_Y_ADJUST;
-            } else {
-                headPosition.y = blockTopY;
-            }
-            playerTranslated=true;
-            return;
-        } 
+    	if ( feetBlockEmpty ) 
+    	{
+    		// block below player feet is empty, disable gravity compensation
+    		// force so player starts falling down
+    		gravityCompensation.setZero();
+    		isFallingDown = true;
+    	}
+    	else 
+    	{
+    		// block below feet is not empty, 
+    		// enable gravity compensation and adjust player Y 
+    		// so that he/she rests on top of the block
+    		final float yAcceleration = playerAcceleration.y + gravityCompensation.y + GRAVITY.y;
+    		if ( yAcceleration <= 0 ) { // we only want to force the player to land if he/she is actually falling down
+    			if ( isFallingDown ) 
+    			{
+	    			isFallingDown = false;
+	    			gravityCompensation.set( INV_GRAVITY );
+	    			playerAcceleration.setZero();
+	    			velocity.setZero();
+	    			final long chunkId = chunk.chunkKey.toID();
+	    			
+	    			final Vector3 blockCenter = BlockKey.getBlockCenter( chunkId , BlockKey.getBlockID( chunkId , tmp ) , tmp );
+	    			blockCenter.add( 0 , World.HALF_BLOCK_SIZE , 0 );
+	    			blockCenter.add( 0, PLAYER_HEIGHT , 0 ); // + player height since we need to get set the HEAD position
+	    			setPosition( headPosition().x , blockCenter.y , headPosition().z );
+    			}
+    			return;
+    		}
+    	}
+    	
+        tmp3.set( playerAcceleration );
+        tmp3.add( gravityCompensation );
+        tmp3.add( GRAVITY ); 
+        tmp3.scl( delta ); // acc = (acceleration + gravity)*dT
         
-        // check type of block below us
-        if ( block.y-1 >= 0 ) {
-            block.y -= 1;
-        } else {
-            block.y = World.CHUNK_SIZE-1;
-            feetChunk = feetChunk.bottomNeighbour;
+        System.out.println("acc = "+tmp3);
+        tmp3.add( velocity );
+        tmp3.limit( SPEED_LIMIT ); // velocity += (acceleration + gravity)*dT
+        velocity.set( tmp3 );
+        System.out.println("velocity = "+tmp3+" (delta: "+delta+")");
+        
+        tmp3.scl( delta ).add( headPosition() ); // headPosition += velocity*dT
+        System.out.println("position = "+headPosition());
+        
+        if ( canMoveTo( tmp3.x , tmp3.y , tmp3.z ) ) 
+        {
+        	setPosition( tmp3 );
         }
-        blockType = feetChunk.getBlockType( block.x , block.y , block.z );
-        if ( blockType == BlockType.AIR ) { // oops, need to fall down
-            headPosition.y -= delta * COLLISION_Y_ADJUST;
-            if ( headPosition.y < PLAYER_HEIGHT ) {
-                headPosition.y = PLAYER_HEIGHT;
-            }
-            playerTranslated=true;
-        } 
-        else 
-        { 
-            // solid block, make sure we're standing right on the top surface
-            // TODO: Adjust Y gradually.
-            final float blockTopY = feetChunk.center.y - World.CHUNK_HALF_WIDTH + block.y * World.BLOCK_SIZE;
-            if ( feetPosition.y != blockTopY ) {
-                feetPosition.y = blockTopY;
-                playerTranslated=true;
-            }
-        }
+    }
+    
+    private boolean canMoveTo(float headX,float headY,float headZ) 
+    {
+        tmp.set( headX , headY , headZ );
+        Chunk chunk = world.getWorldChunk( tmp );
+        final boolean headBlockEmpty = chunk.isBlockEmpty( tmp );
+        
+        calculateFeetPosition( tmp , tmp );
+        chunk = world.getWorldChunk( tmp );
+        final boolean feetBlockEmpty = chunk.isBlockEmpty( tmp );        
+        
+        return headBlockEmpty && feetBlockEmpty;
     }
     
     /**
@@ -183,7 +204,12 @@ public class Player
      */
     public Vector3 feetPosition() {
         final Vector3 headPosition = camera.position;
-        return feetPosition2.set(headPosition.x , headPosition.y - PLAYER_HEIGHT , headPosition.z );
+        return calculateFeetPosition( headPosition , feetPosition2 );
+    }
+    
+    private Vector3 calculateFeetPosition(Vector3 headPosition,Vector3 result) 
+    {
+    	return result.set(headPosition.x , headPosition.y - PLAYER_HEIGHT , headPosition.z );
     }
     
     /**
@@ -226,9 +252,9 @@ public class Player
      * 
      * @param v
      */
-    public void translate(Vector3 v)
+    public boolean translate(Vector3 v)
     {
-        translate(v.x,v.y,v.z);
+        return translate(v.x,v.y,v.z);
     }
     
     /**
@@ -238,10 +264,15 @@ public class Player
      * @param dy
      * @param dz
      */
-    public void translate(float dx,float dy,float dz)
+    public boolean translate(float dx,float dy,float dz)
     {
-        camera.translate(dx,dy,dz);
-        playerTranslated = true;
+    	if ( canMoveTo( camera.position.x + dx , camera.position.y + dy , camera.position.z + dz ) ) 
+    	{ 
+    		camera.translate(dx,dy,dz);
+    		playerTranslated = true;
+    		return true;
+    	}
+    	return false;
     }
     
     /**

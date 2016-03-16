@@ -84,7 +84,6 @@ public class IndividualBlockSelection implements IBlockSelection
 		blockIds[size] = blockId;
 		size++;
 		selectionChanged = true;		
-		System.out.println("Selection now has "+size+" blocks: "+chunkId+","+blockId);
 	}
 	
 	public void clear() 

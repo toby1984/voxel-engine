@@ -91,8 +91,8 @@ public class ApplicationMain implements ApplicationListener {
         shaderManager = new ShaderManager();
         world = new World( shaderManager, chunkManager , camera );
 
-        world.player.setPosition(-115,13,-13);
-        world.player.lookAt( -115 , 13 , -200 );
+        world.player.setPosition(-115,13,50);
+        world.player.lookAt( -1000 , 13 , 0 );
 
         worldRenderer = new WorldRenderer( world , shaderManager , textureManager );
         playerController = new PlayerController( world.player );
@@ -122,17 +122,17 @@ public class ApplicationMain implements ApplicationListener {
     {
         final float deltaTime = Gdx.graphics.getDeltaTime();
 
-        // process keyboard/mouse inputs
-        playerController.update( deltaTime );
-
-        // tick player (applies physics etc.)
-        world.player.update( deltaTime ); // updates camera 
-
         // clear viewport 
         Gdx.gl30.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         Gdx.gl30.glClearColor( 0 , 0 , 0 , 1 );
         Gdx.gl30.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
+        // process keyboard/mouse inputs
+        playerController.update( deltaTime );
+
+        // update player (applies physics etc.)
+        world.player.update( deltaTime ); 
+        
         // render world
         worldRenderer.render(deltaTime);
 
@@ -240,42 +240,46 @@ public class ApplicationMain implements ApplicationListener {
         	throw new IllegalArgumentException("You need to select either empty or occupied cells");
         }
         
-        final IBlockSelection selection = world.currentSelection.selection;
-        
-        if ( ! checkAgainstSelection ) 
+        setupRayMarching();
+        if ( checkAgainstSelection ) 
         {
-            setupRayMarching();
-            
-            boolean hitNonEmptyBlock=false;
-            for ( ; rayMarcher.distance < SELECTION_RANGE_IN_BLOCKS * World.BLOCK_SIZE ; rayMarcher.advance() ) { // only try to find selection at most 10 blocks away
-    
-                final Chunk chunk = chunkManager.getChunk( rayMarcher.chunkID );
-    
-                hitNonEmptyBlock = chunk.isBlockNotEmpty( rayMarcher.block );
-                if ( hitNonEmptyBlock ) 
-                {
-                	if ( canSelectOccupied ) {
-                	    currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
-                		return true;
-                	}
-                	break;
-                }
-            }
-            
-            if ( hitNonEmptyBlock ) // trace ray back to origin while looking for the first empty block 
-            {
-            	while ( rayMarcher.distance > 0 ) 
-            	{
-            		rayMarcher.stepBack();
-            		final Chunk chunk = chunkManager.getChunk( rayMarcher.chunkID );
-            		if ( chunk.isBlockEmpty( rayMarcher.block ) ) 
-            		{
-                		currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
-                		return true;
-            		}
-            	}
-            }
+        	for ( int i = 0 ; i < 5 ; i++ ) {
+        		rayMarcher.advance(); // +HALF_BLOCK_SIZE
+        		rayMarcher.advance(); // +HALF_BLOCK_SIZE
+        	}
+        	currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
+        	return true;
         } 
+        
+        boolean hitNonEmptyBlock=false;
+        for ( ; rayMarcher.distance < SELECTION_RANGE_IN_BLOCKS * World.BLOCK_SIZE ; rayMarcher.advance() ) { // only try to find selection at most 10 blocks away
+
+            final Chunk chunk = chunkManager.getChunk( rayMarcher.chunkID );
+
+            hitNonEmptyBlock = chunk.isBlockNotEmpty( rayMarcher.block );
+            if ( hitNonEmptyBlock ) 
+            {
+            	if ( canSelectOccupied ) {
+            	    currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
+            		return true;
+            	}
+            	break;
+            }
+        }
+        
+        if ( hitNonEmptyBlock ) // trace ray back to origin while looking for the first empty block 
+        {
+        	while ( rayMarcher.distance > 0 ) 
+        	{
+        		rayMarcher.stepBack();
+        		final Chunk chunk = chunkManager.getChunk( rayMarcher.chunkID );
+        		if ( chunk.isBlockEmpty( rayMarcher.block ) ) 
+        		{
+            		currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
+            		return true;
+        		}
+        	}
+        }
         
         // forward tracing didn't hit any block within selection range,
         // try again but look for a non-empty neighbouring block instead
@@ -291,7 +295,7 @@ public class ApplicationMain implements ApplicationListener {
             {
                 chunk = chunk.leftNeighbour;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ) )
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
                 currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
                 return true;
@@ -302,7 +306,7 @@ public class ApplicationMain implements ApplicationListener {
                 chunk = chunk.rightNeighbour;
                 TMP_SELECTION.x = 0;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ))
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
                 currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
                 return true;
@@ -313,7 +317,7 @@ public class ApplicationMain implements ApplicationListener {
                 chunk = chunk.topNeighbour;
                 TMP_SELECTION.y = 0;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ))
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
                 currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
                 return true;
@@ -324,7 +328,7 @@ public class ApplicationMain implements ApplicationListener {
                 chunk = chunk.bottomNeighbour;
                 TMP_SELECTION.y = World.CHUNK_SIZE-1;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ))
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
                 currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
                 return true;
@@ -335,7 +339,7 @@ public class ApplicationMain implements ApplicationListener {
                 chunk = chunk.backNeighbour;
                 TMP_SELECTION.z = World.CHUNK_SIZE-1;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ))
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
                 currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
                 return true;
@@ -346,7 +350,7 @@ public class ApplicationMain implements ApplicationListener {
                 chunk = chunk.frontNeighbour;
                 TMP_SELECTION.z = 0;
             }
-            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) || ( checkAgainstSelection && selection.isPartOfSelection( chunk.chunkKey.toID() , TMP_SELECTION.toID() ) ))
+            if ( chunk.isBlockNotEmpty( TMP_SELECTION ) )
             {
                 currentTarget.set( rayMarcher.chunkID , rayMarcher.blockID );
                 return true;
