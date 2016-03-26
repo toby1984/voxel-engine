@@ -1,137 +1,96 @@
-package de.codesourcery.voxelengine.blockeditor;
+package de.codesourcery.voxelengine.asseteditor;
 
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Arrays;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
-import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
-import javax.swing.filechooser.FileFilter;
 
 import org.apache.commons.lang3.StringUtils;
 
-import de.codesourcery.voxelengine.blockeditor.BlockSideDefinition.Rotation;
-import de.codesourcery.voxelengine.engine.BlockSide;
+import de.codesourcery.voxelengine.asseteditor.BlockSideDefinition.Rotation;
 
-public class BlockSideDefinitionPanel extends JPanel 
+public class TextureConfigPanel extends FormPanel<TextureConfig>
 {
-    public BlockSideDefinition model;
     public TransformingTextureResolver resolver;
     
-    /*
-    public static enum Rotation 
-    {
-        NONE(0),
-        CW_90(90),
-        CCW_90(270),
-        ONE_HUNDRED_EIGHTY(180);
-        
-        public final int degrees;
-        
-        private Rotation(int degrees) {
-            this.degrees = degrees;
-        }
-    }
-    
-    // side of this block
-    public final BlockSide side;
-    
-    // top-left (u,v) coordinates in texture atlas
-    public float u0,v0;
-    
-    // bottom-right (u,v) coordinates in texture atlas 
-    public float u1,v1;
-    
-    // path to input texture that makes up this side of a block
-    public String inputTexture;
-    
-    // whether to flip the input texture before applying rotation
-    public boolean flip;
-
-    // rotation of input texture
-    public Rotation rotation=Rotation.NONE;     
-     */
-    
-    private final JComboBox<BlockSide> side = new JComboBox<>( BlockSide.values() );
     private final JCheckBox flip = new JCheckBox();
     private final JComboBox<BlockSideDefinition.Rotation> rotation = new JComboBox<>( BlockSideDefinition.Rotation.values() );
     private final JTextField inputTexture = new JTextField();
     private final JButton fileSelector = new JButton("Choose...");
     private final ImagePanel preview = new ImagePanel();
     
-    private Path baseDirectory;
-
-    private IValueChangedListener<Object> changeListener = (obj, childrenChangedAsWell) -> {};
-    
-    public BlockSideDefinitionPanel() 
+    public interface ITableLayout 
     {
-        setLayout( new GridBagLayout() );
+        public void addToRow(JComponent component,GridBagConstraints cnstrs);
         
-        int y = 0;
+        public void addLast(JComponent component,GridBagConstraints cnstrs);
+    }
+    
+    public static final class PanelTableLayout implements ITableLayout 
+    {
+        private final JPanel panel;
+        public int y = 0;
+
+        public PanelTableLayout(JPanel panel) {
+            this.panel = panel;
+            panel.setLayout( new GridBagLayout() );
+        }
+        
+        public void addToRow(JComponent component,GridBagConstraints cnstrs) {
+            cnstrs.gridy = y;
+            panel.add( component , cnstrs );
+        }
+        
+        public void addLast(JComponent component,GridBagConstraints cnstrs) {
+            cnstrs.gridy = y;
+            panel.add( component , cnstrs );
+            y++;
+        }        
+    }
+    
+    public TextureConfigPanel() 
+    {
+        this( null );
+    }
+    
+    public TextureConfigPanel(ITableLayout layout) 
+    {
+        if ( layout == null ) {
+            layout = new PanelTableLayout( this );
+        }
+        
+        rotation.setEditable( false );
         
         // add preview
         GridBagConstraints cnstrs = new GridBagConstraints();
+        cnstrs.insets = new Insets(5, 5, 5, 5);
         cnstrs.weightx = 0; cnstrs.weighty = 0;
-        cnstrs.gridx = 0 ; cnstrs.gridy = y;
+        cnstrs.gridx = 0;
         cnstrs.gridheight = 1 ; cnstrs.gridwidth = 3;
         cnstrs.fill = GridBagConstraints.NONE;
+        preview.setMinimumSize( new Dimension(50,50 ) );
         preview.setPreferredSize( new Dimension(50,50 ) );
         preview.setBorder( BorderFactory.createLineBorder( Color.BLACK ) );
-        add( preview , cnstrs );
-        y++;
+        layout.addLast( preview , cnstrs );
         
         // add fields
-        side.setEditable( false );
-        addInputField( "Side:" , side, y );
-        y++;
-
         fileSelector.addActionListener( ev -> selectFile() );
         inputTexture.setEditable( false );
         inputTexture.setEnabled( false );
-        addInputField( "Texture:" , inputTexture , fileSelector , y ).setColumns(20);
-        y++;
-        
-        addInputField( "Flip:" , flip , y ).addActionListener( ev -> updatePreview() );
-        y++;
-        
-        addInputField( "Rotation:" , rotation , y ).addActionListener( ev -> updatePreview() );
-        y++;        
-        
-        // add save button
-        final JPanel buttonPanel = new JPanel();
-        buttonPanel.setLayout( new FlowLayout() );
-        
-        final JButton save = new JButton("Save");
-        save.addActionListener( ev -> saveChanges() );
-        buttonPanel.add(save);
-        
-        // add cancel button
-        final JButton cancel = new JButton("Cancel");
-        cancel.addActionListener( ev -> modelChanged() );
-        buttonPanel.add( cancel );
-        
-        cnstrs = new GridBagConstraints();
-        cnstrs.weightx = 0.5; cnstrs.weighty = 0;
-        cnstrs.gridx = 0 ; cnstrs.gridy = y;
-        cnstrs.gridheight = 1 ; cnstrs.gridwidth = 3;
-        cnstrs.fill = GridBagConstraints.HORIZONTAL;
-        add( buttonPanel , cnstrs );
-        y++;        
+        addInputField( "Texture:" , inputTexture , fileSelector , layout ).setColumns(20);
+        addInputField( "Flip:" , flip , layout  ).addActionListener( ev -> updatePreview() );
+        addInputField( "Rotation:" , rotation , layout  ).addActionListener( ev -> updatePreview() );
     }
     
     private void selectFile() 
@@ -145,70 +104,65 @@ public class BlockSideDefinitionPanel extends JPanel
         updatePreview();        
     }
     
-    private <T extends JComponent> T addInputField(String label,T component,int y ) 
+    private <T extends JComponent> T addInputField(String label,T component,ITableLayout layout ) 
     {
         GridBagConstraints cnstrs = new GridBagConstraints();
         cnstrs.insets = new Insets(5,5,5,5);
         cnstrs.weightx = 0.5; cnstrs.weighty = 0;
-        cnstrs.gridx = 0 ; cnstrs.gridy = y;
+        cnstrs.gridx = 0;
         cnstrs.gridheight = 1 ; cnstrs.gridwidth = 1;
         cnstrs.fill = GridBagConstraints.HORIZONTAL;  
         cnstrs.anchor = GridBagConstraints.WEST;
-        add( new JLabel(label) , cnstrs );
+        layout.addToRow( new JLabel(label) , cnstrs );
         
         cnstrs = new GridBagConstraints();
         cnstrs.insets = new Insets(5,5,5,5);
         cnstrs.weightx = 0.5; cnstrs.weighty = 0;
-        cnstrs.gridx = 1 ; cnstrs.gridy = y;
+        cnstrs.gridx = 1;
         cnstrs.gridheight = 1 ; cnstrs.gridwidth = 2;
         cnstrs.fill = GridBagConstraints.HORIZONTAL;  
         cnstrs.anchor = GridBagConstraints.WEST;
-        add( component , cnstrs );        
+        layout.addLast( component , cnstrs );     
         return component;
     }
     
-    private <T extends JComponent> T addInputField(String label,T component1,JComponent component2,int y ) 
+    private <T extends JComponent> T addInputField(String label,T component1,JComponent component2,ITableLayout layout) 
     {
         GridBagConstraints cnstrs = new GridBagConstraints();
+        cnstrs.insets = new Insets(5, 5, 5, 5);
         cnstrs.weightx = 0.5; cnstrs.weighty = 0;
-        cnstrs.gridx = 0 ; cnstrs.gridy = y;
+        cnstrs.gridx = 0;
         cnstrs.gridheight = 1 ; cnstrs.gridwidth = 1;
         cnstrs.fill = GridBagConstraints.HORIZONTAL;  
-        add( new JLabel(label) , cnstrs );
+        layout.addToRow( new JLabel(label) , cnstrs );
         
         cnstrs = new GridBagConstraints();
+        cnstrs.insets = new Insets(5, 5, 5, 5);
         cnstrs.weightx = 0.5; cnstrs.weighty = 0;
-        cnstrs.gridx = 1 ; cnstrs.gridy = y;
+        cnstrs.gridx = 1;
         cnstrs.gridheight = 1 ; cnstrs.gridwidth = 1;
         cnstrs.fill = GridBagConstraints.HORIZONTAL;  
-        add( component1 , cnstrs );
+        layout.addToRow( component1 , cnstrs );
         
         cnstrs = new GridBagConstraints();
+        cnstrs.insets = new Insets(5, 5, 5, 5);
         cnstrs.weightx = 0.5; cnstrs.weighty = 0;
-        cnstrs.gridx = 2 ; cnstrs.gridy = y;
+        cnstrs.gridx = 2 ;
         cnstrs.gridheight = 1 ; cnstrs.gridwidth = 1;
         cnstrs.fill = GridBagConstraints.HORIZONTAL;  
-        add( component2 , cnstrs );         
+        layout.addLast( component2 , cnstrs );     
         return component1;
     }    
     
-    public void setModel(BlockSideDefinition model) 
+    protected void modelChanged() 
     {
-        this.model = model;
-        modelChanged();
-    }
-    
-    private void modelChanged() 
-    {
-        final boolean editable = model != null && ! model.isAutoGenerated();
+        final boolean editable = model != null;
         if ( model == null ) 
         {
-            side.setSelectedItem( null );
             flip.setSelected( false );
             rotation.setSelectedItem( BlockSideDefinition.Rotation.NONE );
             inputTexture.setText( "" );
         } else {
-            side.setSelectedItem( model.side );
             flip.setSelected( model.flip );
             rotation.setSelectedItem( model.rotation );
             if ( model.getInputTexture() != null ) {
@@ -219,10 +173,7 @@ public class BlockSideDefinitionPanel extends JPanel
         }
             
         fileSelector.setEnabled( editable );
-        side.setEditable( editable );
-        side.setEnabled( editable );
         flip.setEnabled( editable );
-        rotation.setEditable( editable );
         rotation.setEnabled( editable );
         updatePreview();
     }
@@ -245,23 +196,13 @@ public class BlockSideDefinitionPanel extends JPanel
         }        
     }
     
-    private void saveChanges() 
+    public void saveChanges() 
     {
-        this.model.side = (BlockSide) side.getSelectedItem();
         this.model.flip = flip.isSelected();
         this.model.rotation = (Rotation) rotation.getSelectedItem();
         this.model.setInputTexture(inputTexture.getText());
         updatePreview();
-        this.changeListener.valueChanged( this.model, false );
-    }
-    
-    public void setBaseDirectory(Path baseDirectory) {
-        this.baseDirectory = baseDirectory;
-    }
-
-    public void setValueChangedListener(IValueChangedListener<Object> blockTree) 
-    {
-        this.changeListener = blockTree; 
+        notifyChangeListener(false);
     }
     
     public void setTextureResolver(TextureResolver resolver) 

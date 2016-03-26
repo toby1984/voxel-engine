@@ -1,4 +1,4 @@
-package de.codesourcery.voxelengine.blockeditor;
+package de.codesourcery.voxelengine.asseteditor;
 
 @FunctionalInterface
 public interface ISelectionListener<T> 

@@ -1,122 +1,32 @@
-package de.codesourcery.voxelengine.blockeditor;
+package de.codesourcery.voxelengine.asseteditor;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import de.codesourcery.voxelengine.asseteditor.AssetConfig.BlockVisitor;
 
-import org.apache.commons.lang3.StringUtils;
-
-import de.codesourcery.voxelengine.blockeditor.BlockConfig.BlockVisitor;
-import de.codesourcery.voxelengine.engine.BlockSide;
-
-public class CodeGenerator 
+public class BlockTypeCodeGenerator extends CodeGenerator
 {
     // variables to expand
-    private static final String VAR_PACKAGE = "PACKAGE";
-    private static final String VAR_CLASSNAME = "CLASSNAME";
     private static final String VAR_BLOCK_TYPE_IDS = "BLOCK_TYPE_IDS";
     private static final String VAR_MAX_BLOCK_TYPE= "MAX_BLOCK_TYPE";
-    private static final String VAR_UV_COORDINATES = "UV_COORDINATES";
     private static final String VAR_IS_SOLID_BLOCK_SWITCH = "IS_SOLID_BLOCK_SWITCH";
     private static final String VAR_EMITS_LIGHT_SWITCH = "EMITS_LIGHT_SWITCH";
     private static final String VAR_EMITTED_LIGHT_LEVEL_SWITCH = "EMITTED_LIGHT_LEVEL_SWITCH";
     
-    private final String codeTemplate;
-    
-    public String className = "BlockType2";
-    public String packageName = "de.codesourcery.voxelengine.model";
-    public int spacesPerTab=4;
-    
-    public CodeGenerator() 
+    protected String loadDefaultTemplate() 
     {
-        this( loadDefaultTemplate() );
+        return loadDefaultTemplate("/blockeditor/BlockType.template");
     }
     
-    private static String loadDefaultTemplate() 
+    public BlockTypeCodeGenerator() 
     {
-        final byte[] buffer = new byte[1024];
-        final ByteArrayOutputStream out = new ByteArrayOutputStream();
-        final InputStream in = CodeGenerator.class.getResourceAsStream("/blockeditor/BlockType.template");
-        try 
-        {
-            int bytesRead=0;
-            while(  ( bytesRead = in.read( buffer ) ) > 0 ) 
-            { 
-                out.write( buffer , 0 , bytesRead );
-            }
-            
-            return new String( out.toByteArray() );
-        } 
-        catch (IOException e) 
-        {
-            e.printStackTrace();
-            throw new RuntimeException(e);
-        } 
-        finally 
-        {
-            if ( in != null ) 
-            {
-                try { in.close(); } catch(IOException e) { /* can't help it */ }
-            }
-        }
-    }
+        this( null );
+    }    
     
-    public CodeGenerator(String template) {
-        this.codeTemplate = template;
-    }
-    
-    public CharSequence generateCode(BlockConfig config) 
+    public BlockTypeCodeGenerator(String template) 
     {
-        final StringBuilder result = new StringBuilder();
-        final StringBuilder variable = new StringBuilder();
-        
-        int column=0;
-        for (int i = 0 , len = codeTemplate.length() ; i < len ; i++ ) 
-        {
-            final char c = codeTemplate.charAt( i );
-            if ( c == '$' && (i+1) < len && codeTemplate.charAt(i+1) == '{' ) 
-            {
-                variable.setLength( 0 );
-                final String indent = StringUtils.repeat( ' ' , column );
-                final int start = i;
-                i+=2;
-                while ( i < len ) 
-                {
-                    final char c2 = codeTemplate.charAt( i );
-                    if ( c2 == '}' ) {
-                        break;
-                    }
-                     if ( c2 == '\n' ) {
-                         throw new RuntimeException("Unterminated variable name around "+start);
-                     }
-                    variable.append( c2 );
-                    i++;
-                }
-                if ( i >= len ) 
-                {
-                    throw new RuntimeException("Unterminated variable name at offset "+start);
-                }
-                if ( StringUtils.isBlank( variable ) ) {
-                    throw new RuntimeException("Blank variable name at offset "+start);
-                }
-                result.append( expandVariable( variable , config , indent ) );
-            } 
-            else 
-            {
-                switch( c ) 
-                {
-                    case '\n': column =  0; break;
-                    case '\t': column += spacesPerTab; break;
-                    case ' ':  column += 1; break;
-                    default:   column += 1;
-                }
-                result.append( c );
-            }
-        }
-        return result;
+        super(template);
     }
     
-    private CharSequence expandVariable(CharSequence name,BlockConfig config, String indentString) 
+    protected CharSequence expandVariable(CharSequence name,AssetConfig config, String indentString) 
     {
         switch( name.toString() ) 
         {
@@ -133,7 +43,7 @@ public class CodeGenerator
         }
     }
     
-    private CharSequence expandMaxBlockType(BlockConfig config,String indentString) 
+    private CharSequence expandMaxBlockType(AssetConfig config,String indentString) 
     {
         return Integer.toString( config.blocks.stream().mapToInt( bd -> bd.blockType ).max().orElse(0) );
     }
@@ -148,10 +58,11 @@ public class CodeGenerator
         return packageName;
     }
     
-    private CharSequence expandBlockTypeIds(BlockConfig config, String indentString) 
+    private CharSequence expandBlockTypeIds(AssetConfig config, String indentString) 
     {
         final StringBuilder buffer = new StringBuilder();
-        config.visitByAscendingTypeId( (bd,isFirst,isLast) -> {
+        config.visitBlocksByAscendingTypeId( (bd,isFirst,isLast) -> 
+        {
             buffer.append( isFirst ? "" : indentString).append("public static final int ").append( getBlockTypeConstantName( bd ) )
             .append( " = " ).append( bd.blockType );
             buffer.append( ";" );                
@@ -166,7 +77,7 @@ public class CodeGenerator
         return bd.name.toUpperCase();
     }
     
-    private CharSequence expandUVCoordinates(BlockConfig config, String indentString) 
+    private CharSequence expandUVCoordinates(AssetConfig config, String indentString) 
     {
         final StringBuilder buffer = new StringBuilder();
         
@@ -181,10 +92,10 @@ public class CodeGenerator
                 {
                     final boolean lastSide = (i+1) == 6;
                     final BlockSideDefinition def = bd.sides[ i ];
-                    buffer.append( Float.toString( def.u0 ) ).append("f,");
-                    buffer.append( Float.toString( def.v0 ) ).append("f,");
-                    buffer.append( Float.toString( def.u1 ) ).append("f,");
-                    buffer.append( Float.toString( def.v1 ) ).append("f");
+                    buffer.append( Float.toString( def.texture.u0 ) ).append("f,");
+                    buffer.append( Float.toString( def.texture.v0 ) ).append("f,");
+                    buffer.append( Float.toString( def.texture.u1 ) ).append("f,");
+                    buffer.append( Float.toString( def.texture.v1 ) ).append("f");
                     floatsThisLine+= 4;
                     if ( floatsThisLine >= 8 ) 
                     {
@@ -202,14 +113,14 @@ public class CodeGenerator
                 }
             }
         };
-        config.visitByAscendingTypeId( c );
+        config.visitBlocksByAscendingTypeId( c );
         return buffer.length() == 0 ? buffer : buffer; 
     }    
     
-    private CharSequence expandIsSolidBlockSwitch(BlockConfig config, String indentString) 
+    private CharSequence expandIsSolidBlockSwitch(AssetConfig config, String indentString) 
     {
         final StringBuilder buffer = new StringBuilder();
-        config.visitByAscendingTypeId( (bd,isFirst,isLast) -> 
+        config.visitBlocksByAscendingTypeId( (bd,isFirst,isLast) -> 
         {
             buffer.append( isFirst ? "" : indentString).append("case ").append( getBlockTypeConstantName( bd ) ).append(": ");
             if ( bd.opaque ) {
@@ -224,9 +135,9 @@ public class CodeGenerator
         return buffer;
     }    
     
-    private CharSequence expandEmitsLightSwitch(BlockConfig config, String indentString) {
+    private CharSequence expandEmitsLightSwitch(AssetConfig config, String indentString) {
         final StringBuilder buffer = new StringBuilder();
-        config.visitByAscendingTypeId( (bd,isFirst,isLast) -> 
+        config.visitBlocksByAscendingTypeId( (bd,isFirst,isLast) -> 
         {
             buffer.append( isFirst ? "" : indentString ).append("case ").append( getBlockTypeConstantName( bd ) ).append(": ");
             if ( bd.emitsLight ) {
@@ -241,10 +152,10 @@ public class CodeGenerator
         return buffer;
     }     
     
-    private CharSequence expandEmittedLightLevelSwitch(BlockConfig config, String indentString) 
+    private CharSequence expandEmittedLightLevelSwitch(AssetConfig config, String indentString) 
     {
         final StringBuilder buffer = new StringBuilder();
-        config.visitByAscendingTypeId( (bd,isFirst,isLast) -> 
+        config.visitBlocksByAscendingTypeId( (bd,isFirst,isLast) -> 
         {
             buffer.append( isFirst ? "" : indentString ).append("case ").append( getBlockTypeConstantName( bd ) ).append(": ");
             final int lightLevel = bd.emitsLight ? bd.lightLevel : 0;

@@ -32,7 +32,7 @@ public class TextureManager implements Disposable {
     {
         final String cp = "textures/"+name+".png"; // Note that crappy libgdx always prefixes the path with '/' so we must not do this here....
         final Texture t = new Texture( Gdx.files.classpath( cp ) , false );
-        t.setFilter(TextureFilter.Nearest,TextureFilter.Linear);
+        t.setFilter(TextureFilter.Nearest,TextureFilter.Nearest);
         t.setWrap( TextureWrap.Repeat , TextureWrap.Repeat );
         return t;
     }

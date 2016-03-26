@@ -1,5 +1,6 @@
-package de.codesourcery.voxelengine.blockeditor;
+package de.codesourcery.voxelengine.asseteditor;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,19 +26,25 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import de.codesourcery.voxelengine.asseteditor.TextureAtlasConfig.Category;
 import de.codesourcery.voxelengine.engine.BlockSide;
-import de.codesourcery.voxelengine.model.BlockType;
 
 public class BlockConfigReader 
 {
     /*
-     * <blockDefinitions>
+     * <assets>
      *   <general>
-     *     <textureAtlasSize>1024</textureAtlasSize>
-     *     <blockTextureSize>32</blockTextureSize>
      *     <baseDirectory>32</baseDirectory>
      *     <codeOutputFile>32</codeOutputFile>
      *   </general>
+     *   <codegens>
+     *     <codegen name="BLOCKS" directory="somePath" classname="" packagename="" />
+     *     <codegen name="ITEMS" directory="somePath" classname="" packagename="" />
+     *   </codegens>            
+     *   <atlases>
+     *     <atlas type="items" outputName="items" textureAtlasSize="1024" textureSize="32" />
+     *     <atlas type="blocks" outputName="blocks" textureAtlasSize="1024" textureSize="32" />
+     *   </atlases>
      *   <blocks>
      *     <block type="0" name="air" emitsLight="false" opaque="false" lightLevel="0">
      *       <side type="top" flip="false" rotate="0" u0="0.0" v0="0.0" u1="1.0" v1="1.0" texture="blocks/0/top" />
@@ -48,22 +55,25 @@ public class BlockConfigReader
      *       <side type="right" flip="false" rotate="0" u0="0.0" v0="0.0" u1="1.0" v1="1.0" texture="blocks/0/top" />
      *    </block>
      *   </blocks>
-     * </blockDefinitions>
+     *   <items>
+     *     <item id="0" name="Block Creator" canCreateBlock="true" canDestroyBlock="false" createdBlockType="0" />
+     *   </items>
+     * </assets>
      */
-    
+
     @FunctionalInterface
     private interface StringMapper<T> 
     {
         public T map(String s);
     }
-    
+
     private static final StringMapper<String> STRING_MAPPER = string -> string;
     private static final StringMapper<Integer> INT_MAPPER = string -> Integer.parseInt( string );
     private static final StringMapper<Float> FLOAT_MAPPER = string -> Float.valueOf( string );
     private static final StringMapper<Boolean> BOOLEAN_MAPPER = string -> Boolean.parseBoolean( string );
     private static final StringMapper<Byte> BYTE_MAPPER = string -> Byte.parseByte( string );
     private static final StringMapper<BlockSide> BLOCKSIDE_MAPPER = string -> BlockSide.fromXmlName( string );
-    
+
     private static final StringMapper<BlockSideDefinition.Rotation> ROTATION_MAPPER = string -> 
     {
         switch( string ) {
@@ -74,40 +84,42 @@ public class BlockConfigReader
             default: throw new RuntimeException("Unsupported rotation: '"+string+"'");
         }
     };
-    
-    private static final String TEXTURE_ATLAS_SIZE_XPATH = "/blockDefinitions/general/textureAtlasSize";
-    private static final String BLOCK_TEXTURE_SIZE_XPATH = "/blockDefinitions/general/blockTextureSize";
-    private static final String BASEDIRECTORY_XPATH = "/blockDefinitions/general/baseDirectory";
-    private static final String CODE_OUTPUT_FILE_XPATH = "/blockDefinitions/general/codeOutputFile";
-    
-    private static final String BLOCKS_XPATH = "/blockDefinitions/blocks/block";
+
+
+    private static final String BASEDIRECTORY_XPATH = "/assets/general/baseDirectory";
+    private static final String CODEGEN_XPATH = "/assets/codegens/codegen";
+
+    private static final String TEXTURE_ATLAS_XPATH = "/assets/atlases/atlas";
+    private static final String BLOCKS_XPATH = "/assets/blocks/block";
+    private static final String ITEM_XPATH = "/assets/items/item";
+
     private static final String SIDE_XPATH = "side";
-    
-    private static final XPathExpression textureAtlasSizeExpr;
-    private static final XPathExpression blockTextureSizeExpr;
+
+    private static final XPathExpression itemExpr;
+    private static final XPathExpression textureAtlasExpr;
     private static final XPathExpression baseDirectoryExpr;
     private static final XPathExpression codeOutputFileExpr;
-    
+
     private static final XPathExpression blocksExpr;
     private static final XPathExpression sideExpr;
-    
-    public BlockConfig read(Path path) throws IOException 
+
+    public AssetConfig read(Path path) throws IOException 
     {
         try ( InputStream in = new FileInputStream( path.toFile() ) ) {
             return read( in );
         }
     }
-    
+
     static {
-        
+
         final XPath factory = XPathFactory.newInstance().newXPath();
-        
+
         try {
-            textureAtlasSizeExpr = factory.compile( TEXTURE_ATLAS_SIZE_XPATH );
-            blockTextureSizeExpr = factory.compile( BLOCK_TEXTURE_SIZE_XPATH );
+            itemExpr = factory.compile( ITEM_XPATH );
+            textureAtlasExpr = factory.compile( TEXTURE_ATLAS_XPATH );
             baseDirectoryExpr = factory.compile( BASEDIRECTORY_XPATH );
-            codeOutputFileExpr = factory.compile( CODE_OUTPUT_FILE_XPATH );
-            
+            codeOutputFileExpr = factory.compile( CODEGEN_XPATH );
+
             blocksExpr = factory.compile( BLOCKS_XPATH );
             sideExpr = factory.compile( SIDE_XPATH );
         } 
@@ -115,22 +127,25 @@ public class BlockConfigReader
             throw new RuntimeException(e);
         }
     }
-    
+
     private <T> T parseNodeValue(XPathExpression expr,Node doc,StringMapper<T> mapper) 
     {
         return mapper.map( parseNodeValue( expr , doc ) );
     }
-    
+
     public String parseNodeValue(XPathExpression expr,Node doc) 
     {
         try {
             final Node node = (Node) expr.evaluate(doc, XPathConstants.NODE);
+            if ( node == null ) {
+                throw new RuntimeException("XPath expression not matched: "+expr.toString());
+            }
             return node.getTextContent();
         } catch (XPathExpressionException e) {
             throw new RuntimeException( e );
         }
     }
-    
+
     public Stream<Element> parseElements(XPathExpression expr,Node doc) 
     {
         try {
@@ -150,17 +165,47 @@ public class BlockConfigReader
         }
     }
 
-    public BlockConfig read(InputStream in) throws IOException 
+    private TextureConfig populateTextureConfig(Element sideElement,TextureConfig def) 
+    {
+        def.flip = attr( sideElement , "flip" , "false" , BOOLEAN_MAPPER );
+        def.rotation = attr( sideElement , "rotate" , "0" , ROTATION_MAPPER );
+        def.u0 = attr( sideElement , "u0" , FLOAT_MAPPER );
+        def.v0 = attr( sideElement , "v0" , FLOAT_MAPPER );
+        def.u1 = attr( sideElement , "u1" , FLOAT_MAPPER );
+        def.v1 = attr( sideElement , "v1" , FLOAT_MAPPER );
+
+        def.setInputTexture( attr( sideElement , "texture" , null , STRING_MAPPER ));
+        return def;
+    }
+
+    public AssetConfig read(InputStream in) throws IOException 
     {
         final Document doc = readXml( in );
-        
-        final BlockConfig result = new BlockConfig();
-        
-        result.textureAtlasSize = parseNodeValue( textureAtlasSizeExpr , doc , INT_MAPPER );
-        result.blockTextureSize = parseNodeValue( blockTextureSizeExpr , doc , INT_MAPPER );
+
+        final AssetConfig result = new AssetConfig();
+
         result.baseDirectory = parseNodeValue( baseDirectoryExpr , doc , STRING_MAPPER );
-        result.codeOutputFile = parseNodeValue( codeOutputFileExpr , doc , STRING_MAPPER );
-        
+
+        // code gens
+        parseElements( codeOutputFileExpr , doc ).forEach( codeGen -> 
+        {
+            final AssetConfig.SourceType type = attr( codeGen, "name" , s -> AssetConfig.SourceType.valueOf( s ) );
+            result.getCodeGenConfig( type ).outputDirectory = attr( codeGen, "directory" , STRING_MAPPER);
+            result.getCodeGenConfig( type ).className = attr( codeGen, "classname" , STRING_MAPPER);
+            result.getCodeGenConfig( type ).packageName = attr( codeGen, "packagename" , "" , STRING_MAPPER);
+        });
+
+        // read atlases
+        parseElements( textureAtlasExpr , doc ).forEach( atlas -> 
+        {
+            String name = attr( atlas , "type" , STRING_MAPPER ); 
+            final TextureAtlasConfig config = result.textureAtlasConfig( Category.fromName( name ) );
+            config.textureAtlasSize = attr( atlas , "textureAtlasSize" , INT_MAPPER );
+            config.textureSize = attr( atlas , "textureSize" , INT_MAPPER );
+            config.outputName = attr( atlas , "outputName" , null , STRING_MAPPER );
+        });
+
+        // read blocks
         parseElements( blocksExpr , doc ).forEach( blockElement -> 
         {
             final String name = blockElement.getAttribute( "name" );
@@ -169,67 +214,70 @@ public class BlockConfigReader
             block.opaque = attr( blockElement , "opaque" , BOOLEAN_MAPPER );
             block.emitsLight = attr( blockElement , "emitsLight" , BOOLEAN_MAPPER ); 
             block.lightLevel = attr( blockElement , "lightLevel" , BYTE_MAPPER );
-                    
+
             parseElements( sideExpr , blockElement ).forEach( sideElement -> 
             {
                 final BlockSideDefinition def = new BlockSideDefinition( BLOCKSIDE_MAPPER.map( sideElement.getAttribute("type" ) ) );
-                def.flip = attr( sideElement , "flip" , "false" , BOOLEAN_MAPPER );
-                def.rotation = attr( sideElement , "rotate" , "0" , ROTATION_MAPPER );
-                def.u0 = attr( sideElement , "u0" , FLOAT_MAPPER );
-                def.v0 = attr( sideElement , "v0" , FLOAT_MAPPER );
-                def.u1 = attr( sideElement , "u1" , FLOAT_MAPPER );
-                def.v1 = attr( sideElement , "v1" , FLOAT_MAPPER );
-                
-                System.out.println("Side "+def.side+" of "+name+" has (u0,v0) = ("+def.u0+","+def.v0+")");
-                System.out.println("Side "+def.side+" of "+name+" has (u1,v1) = ("+def.u1+","+def.v1+")");
-                def.setInputTexture( attr( sideElement , "texture" , null , STRING_MAPPER ));
-                block.sides[ def.side.ordinal() ] = def;
+
+                populateTextureConfig( sideElement , def.texture );
+
+                System.out.println("Side "+def.side+" of "+name+" has (u0,v0) = ("+def.texture.u0+","+def.texture.v0+")");
+                System.out.println("Side "+def.side+" of "+name+" has (u1,v1) = ("+def.texture.u1+","+def.texture.v1+")");
                 System.out.println("Side "+def.side+" has TEXTURE: "+def.getInputTexture());
+
+                block.sides[ def.side.ordinal() ] = def;
             });
             result.blocks.add( block );
         });
-        
-        final BlockConfigTextureResolver res = new BlockConfigTextureResolver( result );
+
+        // read items
+        parseElements( itemExpr , doc ).forEach( itemElement -> 
+        {
+            final ItemDefinition item = new ItemDefinition();
+
+            item.itemId = attr( itemElement , "id" , INT_MAPPER );
+            item.name = attr( itemElement , "name" , STRING_MAPPER );
+            item.canCreateBlock = attr( itemElement , "canCreateBlock" , BOOLEAN_MAPPER );
+            item.canDestroyBlock = attr( itemElement , "canDestroyBlock" , BOOLEAN_MAPPER );
+            
+            populateTextureConfig( itemElement , item.texture );
+            
+            if ( item.canCreateBlock && itemElement.hasAttribute( "createdBlockType" ) ) 
+            {
+                final int blockType = attr( itemElement , "createdBlockType" , INT_MAPPER );
+                final BlockDefinition bd = result.getBlockDefinition( blockType );
+                if ( bd != null ) {
+                    item.createdBlock = bd;
+                } else {
+                    System.err.println("Item #"+item.itemId+" refers to missing block type #"+blockType);
+                }
+            }
+            result.add( item );
+        });
+
+        final AssetConfigTextureResolver res = new AssetConfigTextureResolver( result );
         if ( ! result.isValid( res ) ) {
             throw new IOException("File contains invalid configuration");
         }
-        
-        // TODO: Remove debug code
-//        for ( BlockDefinition def : result.blocks ) 
-//        {
-//            for ( BlockSideDefinition s : def.sides ) 
-//            {
-//                float u = BlockType.getU0( def.blockType , s.side );
-//                float v = BlockType.getV0( def.blockType , s.side );
-//                if ( u != s.u0 || v != s.v0 ) {
-//                    throw new RuntimeException("ERROR: Got ("+u+","+v+") but expected ("+s.u0+","+s.v0+") for side "+s.side);
-//                }
-//                u = BlockType.getU1( def.blockType , s.side );
-//                v = BlockType.getV1( def.blockType , s.side );
-//                if ( u != s.u1 || v != s.v1 ) {
-//                    throw new RuntimeException("ERROR: Got ("+u+","+v+") but expected ("+s.u0+","+s.v0+") for side "+s.side);
-//                }                
-//            }
-//        }
         return result;
     }
-    
+
     private static <T> T attr(Element node,String attrName,String defaultValue,StringMapper<T> stringMapper) 
     {
         return stringMapper.map( attr( node , attrName , defaultValue ) );
     }
-    
+
     private static String attr(Element node,String attrName,String defaultValue) 
     {
         final String result = node.getAttribute( attrName );
         return result == null ? defaultValue : result;
     }
-    
+
     private static <T> T attr(Element node,String attrName,StringMapper<T> mapper) 
     {    
         return mapper.map( attr( node , attrName ) );
     }
-    
+
     private static String attr(Element node,String attrName) 
     {
         final String result = node.getAttribute( attrName );
@@ -238,7 +286,7 @@ public class BlockConfigReader
         }
         return result;
     }    
-    
+
     private static Document readXml(InputStream in) throws IOException 
     {
         final DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();

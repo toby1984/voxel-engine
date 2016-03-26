@@ -1,4 +1,4 @@
-package de.codesourcery.voxelengine.blockeditor;
+package de.codesourcery.voxelengine.asseteditor;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -7,32 +7,24 @@ import java.awt.Insets;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
-public class BlockConfigPanel extends JPanel 
+public class TextureAtlasConfigPanel extends FormPanel<TextureAtlasConfig> 
 {
-    public BlockConfig model;
-    
     private final JTextField blockTextureSize = new JTextField();
     private final JTextField textureAtlasSize = new JTextField();
-    private final JTextField baseDirectory = new JTextField();
-    private final JTextField codeOutputFile = new JTextField();
+    private final JTextField outputName = new JTextField();
     
-    public BlockConfigPanel() 
+    public TextureAtlasConfigPanel() 
     {
         setLayout( new GridBagLayout() );
         
         int y = 0;
         
         // input fields
-        addInputField( "Input texture base directory:" , baseDirectory , y ).setColumns( 20 );
+        addInputField( "Output name:" , outputName , y ).setColumns( 20 );
         y++;
-        
-        codeOutputFile.setEditable( false );
-        addInputField( "Code output file:" , codeOutputFile , y ).setColumns( 20 );
-        y++;        
         
         addInputField( "Texture atlas size:" , textureAtlasSize , y ).setColumns( 5 );
         y++;
@@ -89,39 +81,29 @@ public class BlockConfigPanel extends JPanel
         return component;
     }
     
-    public void setModel(BlockConfig model) 
-    {
-        this.model = model;
-        modelChanged();
-    }
-    
-    private void modelChanged() 
+    protected void modelChanged() 
     {
         if ( model == null ) {
-            baseDirectory.setText( "" );
+            outputName.setText( "" );
             textureAtlasSize.setText( "" );
             blockTextureSize.setText("");
-            codeOutputFile.setText("");
         } else {
-            if ( model.codeOutputFile != null ) {
-                codeOutputFile.setText( model.codeOutputFile );
+            if ( model.outputName != null ) {
+                outputName.setText( model.outputName );
             } else {
-                codeOutputFile.setText("");
-            }
-            if ( model.baseDirectory != null ) {
-                baseDirectory.setText( model.baseDirectory );
-            } else {
-                baseDirectory.setText( "" );
+                outputName.setText("");
             }
             textureAtlasSize.setText( Integer.toString( model.textureAtlasSize ) );
-            blockTextureSize.setText( Integer.toString( model.blockTextureSize ) );
+            blockTextureSize.setText( Integer.toString( model.textureSize ) );
         }
     }
     
-    private void saveChanges() 
+    @Override
+    public void saveChanges() 
     {
-        model.baseDirectory = baseDirectory.getText();
-        model.blockTextureSize = Integer.parseInt( blockTextureSize.getText() );
+        model.outputName = outputName.getText();
+        model.textureSize = Integer.parseInt( blockTextureSize.getText() );
         model.textureAtlasSize = Integer.parseInt( textureAtlasSize.getText() );
+        notifyChangeListener(false);
     }    
 }

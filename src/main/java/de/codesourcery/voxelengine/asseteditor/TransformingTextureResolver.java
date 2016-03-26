@@ -1,4 +1,4 @@
-package de.codesourcery.voxelengine.blockeditor;
+package de.codesourcery.voxelengine.asseteditor;
 
 import java.awt.geom.AffineTransform;
 import java.awt.image.AffineTransformOp;
@@ -7,7 +7,7 @@ import java.io.IOException;
 
 import org.apache.commons.lang3.Validate;
 
-import de.codesourcery.voxelengine.blockeditor.BlockSideDefinition.Rotation;
+import de.codesourcery.voxelengine.asseteditor.BlockSideDefinition.Rotation;
 
 public class TransformingTextureResolver implements TextureResolver 
 {
@@ -42,7 +42,7 @@ public class TransformingTextureResolver implements TextureResolver
         return image;
     }
     
-    public void setTransform(BlockSideDefinition def) 
+    public void setTransform(TextureConfig def) 
     {
         this.flip = def.flip;
         this.rotation = def.rotation;

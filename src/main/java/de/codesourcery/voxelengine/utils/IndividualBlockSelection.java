@@ -1,8 +1,5 @@
 package de.codesourcery.voxelengine.utils;
 
-import de.codesourcery.voxelengine.model.BlockKey;
-import de.codesourcery.voxelengine.model.ChunkKey;
-
 /**
  * Keeps track of an arbitrary set of blocks (chunkId+blockId)
  * 

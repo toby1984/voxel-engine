@@ -53,7 +53,7 @@ public class Player
     
     public long cameraChunkID;
     
-    public final PlayerToolbar toolbar = new PlayerToolbar();
+    public final PlayerToolbar toolbar = new PlayerToolbar(10);
     
     /**
      * Create player instance.

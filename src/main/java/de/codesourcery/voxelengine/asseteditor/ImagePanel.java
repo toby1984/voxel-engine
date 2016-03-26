@@ -1,4 +1,4 @@
-package de.codesourcery.voxelengine.blockeditor;
+package de.codesourcery.voxelengine.asseteditor;
 
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;

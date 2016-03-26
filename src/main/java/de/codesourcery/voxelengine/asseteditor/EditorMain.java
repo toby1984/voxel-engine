@@ -1,4 +1,4 @@
-package de.codesourcery.voxelengine.blockeditor;
+package de.codesourcery.voxelengine.asseteditor;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -32,7 +32,9 @@ import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileFilter;
 
-import de.codesourcery.voxelengine.blockeditor.BlockTreePanel.MyTreeNode;
+import de.codesourcery.voxelengine.asseteditor.AssetConfig.CodeGenConfig;
+import de.codesourcery.voxelengine.asseteditor.AssetConfig.SourceType;
+import de.codesourcery.voxelengine.asseteditor.BlockTreePanel.MyTreeNode;
 
 public class EditorMain extends JFrame 
 {
@@ -42,7 +44,8 @@ public class EditorMain extends JFrame
     public static final Path TEXTURES_FOLDER = ASSETS_FOLDER.resolve( "textures" );
     public static final Path ATLAS_OUTPUT_FILE = TEXTURES_FOLDER.resolve( "blocks_atlas.png" );
     public static final Path BLOCKS_FILE = ASSETS_FOLDER.resolve( "blocks.xml" );
-    public static final Path CODEGEN_OUTPUT_FILE = APP_BASE_DIR.resolve( "src/main/java/de/codesourcery/voxelengine/model/BlockType.java" );
+    
+    private static final boolean PREVIEW_ATLASES = false;
     
     private final JPanel contentPanel = new JPanel();
     private JPanel content;
@@ -120,14 +123,14 @@ public class EditorMain extends JFrame
         
         final JMenu menu1 = new JMenu("File");
         menu1.add( menuItem("New" , this::newConfiguration ) );
-        menu1.add( menuItem("Load block definitions ..." , () -> loadBlockConfig(true) ) );
-        menu1.add( menuItem("Save block definitions" , () -> saveBlockConfig(false) ) );
-        menu1.add( menuItem("Save block definitions as ..." , () -> saveBlockConfig(true) ) );
+        menu1.add( menuItem("Load asset configuration ..." , () -> loadAssetConfig(true) ) );
+        menu1.add( menuItem("Save asset configuration" , () -> saveAssetConfig(false) ) );
+        menu1.add( menuItem("Save asset configuration as ..." , () -> saveAssetConfig(true) ) );
         menu1.add( menuItem("Generate code..." , () -> generateCode() ) );
-        menu1.add( menuItem("Save texture atlas..." , () -> 
+        menu1.add( menuItem("Generate texture atlases..." , () -> 
         { 
             try {
-                saveTextureAtlas();
+                generateTextureAtlas();
             } catch (Exception e) {
                 e.printStackTrace();
             } 
@@ -139,43 +142,46 @@ public class EditorMain extends JFrame
     
     private void generateCode() 
     {
-        final BlockConfig config = blockTree.getConfig();
-        final BlockConfigTextureResolver resolver = new BlockConfigTextureResolver( config );
+        final AssetConfig config = blockTree.getConfig();
+        final AssetConfigTextureResolver resolver = new AssetConfigTextureResolver( config );
         if ( ! config.isValid( resolver ) ) 
         {
             throw new RuntimeException("Cannot generate code for invalid config");
         }
         
+        // make sure we have valid texture coordinates
+        // TODO: This is a redundant step if the user already re-generated the texture atlases 
         try {
-            new TextureAtlasBuilder().build( blockTree.getConfig() , resolver , true );
+            new TextureAtlasBuilder().assignTextureCoordinates( blockTree.getConfig() , resolver );
         } 
         catch (IOException e) 
         {
             throw new RuntimeException(e);
         }
         
-        final CodeGenerator gen = new CodeGenerator();
-        final CharSequence text;
-        
-        Path file = config.codeOutputFile == null ? null : Paths.get(config.codeOutputFile);
-        file = selectJavaFile( true , file );
-        if ( file != null ) 
-        {
-            final String fn = file.toFile().getName();
-            gen.className = fn.contains(".") ? fn.substring( 0 , fn.indexOf('.') ) : fn;
-            text = gen.generateCode( blockTree.getConfig() );
-            try ( PrintWriter out = new PrintWriter( new FileOutputStream( file.toFile() ) ) ) {
-                out.write( text.toString() );
-            } catch (FileNotFoundException e) {
-                throw new RuntimeException(e);
-            }
-            System.out.println("Code written to "+file.getFileName());
-            config.codeOutputFile = file.toFile().getAbsolutePath();
-            blockTree.valueChanged( config , false );
-        } else {
-            System.err.println("No file selected, output will not be written to a file" );
-            text = gen.generateCode( blockTree.getConfig() );
+        generateCode( config , SourceType.BLOCKS , new BlockTypeCodeGenerator() );
+        generateCode( config , SourceType.ITEMS , new ItemTypeCodeGenerator() );
+    }
+    
+    private void generateCode(AssetConfig config,AssetConfig.SourceType type , CodeGenerator gen) 
+    {
+        final CodeGenConfig codeGenConfig = config.getCodeGenConfig( type );
+        if ( ! codeGenConfig.isValid() ) {
+            System.err.println("generateCode() failed for "+type+" , configuration is invalid");
+            return;
         }
+        
+        gen.configure( codeGenConfig );
+
+        final File file = codeGenConfig.getFullPath();
+        final CharSequence text = gen.generateCode( config );
+        try ( PrintWriter out = new PrintWriter( new FileOutputStream( file ) ) ) 
+        {
+            out.write( text.toString() );
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println("Code written to "+file.getAbsolutePath());
         
         final JTextArea area = new JTextArea();
         final int size = area.getFont().getSize();
@@ -185,25 +191,30 @@ public class EditorMain extends JFrame
         
         area.setText( text.toString() );
         
-        final JFrame frame = new JFrame("Generated code");
+        final JFrame frame = new JFrame("Generated "+type+" code");
         
         frame.getContentPane().setLayout( new BorderLayout() );
         frame.getContentPane().add( new JScrollPane( area ) , BorderLayout.CENTER );
+        
+        final JButton closeButton = new JButton("Close");
+        closeButton.addActionListener( ev -> frame.dispose() );
+        frame.getContentPane().add( closeButton , BorderLayout.SOUTH);
+        
         frame.setDefaultCloseOperation( JFrame.DISPOSE_ON_CLOSE );
         frame.pack();
         frame.setLocationRelativeTo( null );
         frame.setVisible( true );
     }
     
-    private void saveTextureAtlas() throws IOException 
+    private void generateTextureAtlas() throws IOException 
     {
         final Path path = selectAtlasFile( true , currentAtlasFile );
         if ( path == null ) {
             return;
         }
         
-        final BlockConfigTextureResolver resolver = new BlockConfigTextureResolver( blockTree.getConfig() );
-        final BufferedImage atlas = new TextureAtlasBuilder().build( blockTree.getConfig() , resolver , false );
+        final AssetConfigTextureResolver resolver = new AssetConfigTextureResolver( blockTree.getConfig() );
+        final BufferedImage atlas = new TextureAtlasBuilder().buildBlockTextureAtlas( blockTree.getConfig() , resolver , null );
 
         // save atlas
         try ( OutputStream out = new FileOutputStream( path.toFile() ) ) 
@@ -232,9 +243,14 @@ public class EditorMain extends JFrame
         preview.getContentPane().setLayout( new BorderLayout() );
         preview.getContentPane().add( pane , BorderLayout.CENTER );
         
+        final JButton closeButton = new JButton("Close");
+        closeButton.addActionListener( ev -> preview.dispose() );
+        preview.getContentPane().add( closeButton , BorderLayout.SOUTH);
+        
         preview.pack();
         preview.setLocationRelativeTo( null );
         preview.setVisible( true );
+        
     }
     
     private void newConfiguration() 
@@ -244,7 +260,7 @@ public class EditorMain extends JFrame
         setConfiguration( createNewConfig() );
     }
     
-    private void loadBlockConfig(boolean alwaysAsk) 
+    private void loadAssetConfig(boolean alwaysAsk) 
     {
         final Path path;
         if ( currentFile == null || alwaysAsk ) {
@@ -265,7 +281,7 @@ public class EditorMain extends JFrame
         }
     }
     
-    private void saveBlockConfig(boolean alwaysAsk) 
+    private void saveAssetConfig(boolean alwaysAsk) 
     {
         final Path path;
         if ( currentFile == null || alwaysAsk ) {
@@ -371,39 +387,57 @@ public class EditorMain extends JFrame
     
     private void treeSelectionChanged(MyTreeNode node) 
     {
-        System.out.println("Selected: "+node);
         if ( node == null || node.value == null ) {
             changeContent( new JPanel() );
             return;
         }
-        if ( node.value instanceof BlockDefinition ) 
+        
+        final FormPanel<?> formPanel;
+        if ( node.hasValue(BlockDefinition.class) ) 
         {
             final BlockDefinitionPanel newContent = new BlockDefinitionPanel();
-            newContent.setTextureResolver( new BlockConfigTextureResolver( blockTree.getConfig() ) );
+            newContent.setTextureResolver( new AssetConfigTextureResolver( blockTree.getConfig() ) );
             newContent.setModel( (BlockDefinition) node.value );
-            newContent.setValueChangedListener( blockTree );
-            changeContent( newContent );
+            formPanel = newContent;
         } 
-        else if ( node.value instanceof BlockSideDefinition ) 
+        else if ( node.hasValue(BlockSideDefinition.class) ) 
         {
             final BlockSideDefinitionPanel newContent = new BlockSideDefinitionPanel();
-            newContent.setTextureResolver( new BlockConfigTextureResolver( blockTree.getConfig() ) );
+            newContent.setTextureResolver( new AssetConfigTextureResolver( blockTree.getConfig() ) );
             newContent.setModel( (BlockSideDefinition) node.value );
-            newContent.setValueChangedListener( blockTree );
-            changeContent( newContent ); 
+            formPanel = newContent;
         } 
-        else if ( node.value instanceof BlockConfig) 
+        else if ( node.hasValue(TextureAtlasConfig.class) ) 
         { 
-            final BlockConfigPanel newContent = new BlockConfigPanel();
-            newContent.setModel( (BlockConfig) node.value );
-            changeContent( newContent );
+            final TextureAtlasConfigPanel newContent = new TextureAtlasConfigPanel();
+            newContent.setModel( (TextureAtlasConfig) node.value );
+            formPanel = newContent;            
+        }         
+        else if ( node.hasValue(AssetConfig.class) ) 
+        { 
+            final AssetConfigPanel newContent = new AssetConfigPanel();
+            newContent.setModel( (AssetConfig) node.value );
+            formPanel = newContent;
         } 
+        else if ( node.hasValue(ItemDefinition.class) ) 
+        { 
+            final ItemDefinitionPanel newContent = new ItemDefinitionPanel( blockTree.getConfig() );
+            newContent.setTextureResolver( new AssetConfigTextureResolver( blockTree.getConfig() ) );
+            newContent.setModel( (ItemDefinition) node.value );
+            formPanel = newContent;
+        } else {
+            // do nothing
+            return;
+        }
+        formPanel.setValueChangedListener( blockTree );
+        changeContent( formPanel );
     }
     
     private JToolBar createToolbar() 
     {
         final JToolBar result = new JToolBar(JToolBar.HORIZONTAL);
         result.add( button("Add block" , this::addBlock ) );
+        result.add( button("Add item" , this::addItem ) );
         return result;
     }
     
@@ -414,6 +448,19 @@ public class EditorMain extends JFrame
         def.name = "";
         def.opaque = true;
         def.emitsLight=false;
+        
+        blockTree.getConfig().add( def );
+        blockTree.add( def );
+        blockTree.setSelection( def );
+    }
+    
+    private void addItem() 
+    {
+        final ItemDefinition def = new ItemDefinition();
+        def.itemId = blockTree.getConfig().nextAvailableItemId();
+        def.name = "";
+        def.canCreateBlock=false;
+        def.canDestroyBlock=false;
         
         blockTree.getConfig().add( def );
         blockTree.add( def );
@@ -444,24 +491,28 @@ public class EditorMain extends JFrame
         return result;
     }
     
-    private void setConfiguration(BlockConfig config) {
+    private void setConfiguration(AssetConfig config) {
         blockTree.setConfig ( config );
     }
     
-    private BlockConfig createNewConfig() 
+    private AssetConfig createNewConfig() 
     {
-        final BlockConfig config = new BlockConfig();
+        final AssetConfig config = new AssetConfig();
         
         config.baseDirectory = EditorMain.TEXTURES_FOLDER.toFile().getAbsolutePath();
-        config.codeOutputFile = EditorMain.CODEGEN_OUTPUT_FILE.toFile().getAbsolutePath();
-        config.textureAtlasSize = 1024;
-        config.blockTextureSize = 32;
+        
+        config.blockAtlas().textureAtlasSize = 1024;
+        config.blockAtlas().textureSize = 32;
+        
+        config.itemAtlas().textureAtlasSize = 1024;
+        config.itemAtlas().textureSize = 32;
+        
         return config;
     }
 
     private void run(String inputFile) throws IOException 
     {
-        final BlockConfig config;
+        final AssetConfig config;
         if ( inputFile == null ) 
         {
             config = createNewConfig();

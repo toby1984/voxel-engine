@@ -1,1 +1,55 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?><blockDefinitions><general><textureAtlasSize>1024</textureAtlasSize><blockTextureSize>128</blockTextureSize><baseDirectory>/home/tobi/mars_workspace/voxel-engine/assets/textures</baseDirectory><codeOutputFile>/home/tobi/mars_workspace/voxel-engine/src/main/java/de/codesourcery/voxelengine/model/BlockType.java</codeOutputFile></general><blocks><block emitsLight="false" lightLevel="0" name="solid_1" opaque="true" type="1"><side flip="false" rotate="0" texture="heart.png" type="back" u0="9.765625E-4" u1="0.032226562" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="heart.png" type="front" u0="0.033203125" u1="0.064453125" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="heart.png" type="left" u0="0.06542969" u1="0.09667969" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="heart.png" type="right" u0="0.09765625" u1="0.12890625" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="heart.png" type="top" u0="0.12988281" u1="0.16113281" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="heart.png" type="bottom" u0="0.16210938" u1="0.19335938" v0="9.765625E-4" v1="0.032226562"/></block><block emitsLight="false" lightLevel="0" name="solid_2" opaque="true" type="2"><side flip="false" rotate="0" texture="solid_2.png" type="back" u0="0.19433594" u1="0.22558594" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="solid_2.png" type="front" u0="0.2265625" u1="0.2578125" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="solid_2.png" type="left" u0="0.25878906" u1="0.29003906" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="solid_2.png" type="right" u0="0.29101562" u1="0.32226562" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="solid_2.png" type="top" u0="0.3232422" u1="0.3544922" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="solid_2.png" type="bottom" u0="0.35546875" u1="0.38671875" v0="9.765625E-4" v1="0.032226562"/></block><block emitsLight="true" lightLevel="10" name="glowstone" opaque="true" type="3"><side flip="false" rotate="0" texture="glowstone.png" type="back" u0="0.3876953" u1="0.4189453" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="glowstone.png" type="front" u0="0.41992188" u1="0.45117188" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="glowstone.png" type="left" u0="0.45214844" u1="0.48339844" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="glowstone.png" type="right" u0="0.484375" u1="0.515625" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="glowstone.png" type="top" u0="0.51660156" u1="0.54785156" v0="9.765625E-4" v1="0.032226562"/><side flip="false" rotate="0" texture="glowstone.png" type="bottom" u0="0.5488281" u1="0.5800781" v0="9.765625E-4" v1="0.032226562"/></block></blocks></blockDefinitions>
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<assets>
+  <general>
+    <baseDirectory>/home/tobi/mars_workspace/voxel-engine/assets/textures</baseDirectory>
+  </general>
+  <codegens>
+    <codegen classname="ItemType" directory="/home/tobi/mars_workspace/voxel-engine/src/main/java" name="ITEMS" packagename="de.codesourcery.voxelengine.model" />
+    <codegen classname="BlockType" directory="/home/tobi/mars_workspace/voxel-engine/src/main/java" name="BLOCKS" packagename="de.codesourcery.voxelengine.model" />
+  </codegens>
+  <atlases>
+    <atlas outputName="" textureAtlasSize="1024" textureSize="32" type="blocks" />
+    <atlas outputName="" textureAtlasSize="1024" textureSize="32" type="items" />
+  </atlases>
+  <blocks>
+    <block emitsLight="false" lightLevel="0" name="SOLID_1" opaque="true" type="1">
+      <side flip="false" rotate="0" texture="solid_1.png" type="back" u0="9.765625E-4" u1="0.032226562" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="solid_1.png" type="front" u0="0.033203125" u1="0.064453125" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="solid_1.png" type="left" u0="0.06542969" u1="0.09667969" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="solid_1.png" type="right" u0="0.09765625" u1="0.12890625" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="solid_1.png" type="top" u0="0.12988281" u1="0.16113281" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="solid_1.png" type="bottom" u0="0.16210938" u1="0.19335938" v0="9.765625E-4" v1="0.032226562" />
+    </block>
+    <block emitsLight="false" lightLevel="0" name="Solid_2" opaque="true" type="2">
+      <side flip="false" rotate="0" texture="solid_2.png" type="back" u0="0.19433594" u1="0.22558594" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="solid_2.png" type="front" u0="0.2265625" u1="0.2578125" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="solid_2.png" type="left" u0="0.25878906" u1="0.29003906" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="solid_2.png" type="right" u0="0.29101562" u1="0.32226562" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="solid_2.png" type="top" u0="0.3232422" u1="0.3544922" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="solid_2.png" type="bottom" u0="0.35546875" u1="0.38671875" v0="9.765625E-4" v1="0.032226562" />
+    </block>
+    <block emitsLight="true" lightLevel="10" name="Glowstone" opaque="true" type="3">
+      <side flip="false" rotate="0" texture="glowstone.png" type="back" u0="0.3876953" u1="0.4189453" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="glowstone.png" type="front" u0="0.41992188" u1="0.45117188" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="glowstone.png" type="left" u0="0.45214844" u1="0.48339844" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="glowstone.png" type="right" u0="0.484375" u1="0.515625" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="glowstone.png" type="top" u0="0.51660156" u1="0.54785156" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="glowstone.png" type="bottom" u0="0.5488281" u1="0.5800781" v0="9.765625E-4" v1="0.032226562" />
+    </block>
+    <block emitsLight="false" lightLevel="0" name="Wood" opaque="true" type="4">
+      <side flip="false" rotate="0" texture="wood.png" type="back" u0="0.5810547" u1="0.6123047" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="wood.png" type="front" u0="0.61328125" u1="0.64453125" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="wood.png" type="left" u0="0.6455078" u1="0.6767578" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="wood.png" type="right" u0="0.6777344" u1="0.7089844" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="wood.png" type="top" u0="0.70996094" u1="0.74121094" v0="9.765625E-4" v1="0.032226562" />
+      <side flip="false" rotate="0" texture="wood.png" type="bottom" u0="0.7421875" u1="0.7734375" v0="9.765625E-4" v1="0.032226562" />
+    </block>
+  </blocks>
+  <items>
+    <item canCreateBlock="true" canDestroyBlock="false" createdBlockType="1" flip="false" id="0" name="Solid1" rotate="0" texture="solid_1.png" u0="0.0" u1="0.0" v0="0.0" v1="0.0" />
+    <item canCreateBlock="false" canDestroyBlock="true" flip="false" id="1" name="Eraser" rotate="0" texture="delete.png" u0="0.0" u1="0.0" v0="0.0" v1="0.0" />
+    <item canCreateBlock="true" canDestroyBlock="false" createdBlockType="3" flip="false" id="2" name="Glowstone" rotate="0" texture="glowstone.png" u0="0.0" u1="0.0" v0="0.0" v1="0.0" />
+    <item canCreateBlock="true" canDestroyBlock="false" createdBlockType="2" flip="false" id="3" name="Solid2" rotate="0" texture="solid_2.png" u0="0.0" u1="0.0" v0="0.0" v1="0.0" />
+    <item canCreateBlock="true" canDestroyBlock="false" createdBlockType="4" flip="false" id="4" name="Wood" rotate="0" texture="wood.png" u0="0.0" u1="0.0" v0="0.0" v1="0.0" />
+  </items>
+</assets>

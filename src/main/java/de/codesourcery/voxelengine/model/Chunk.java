@@ -1,7 +1,6 @@
 package de.codesourcery.voxelengine.model;
 
 import java.util.Arrays;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;

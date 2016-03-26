@@ -7,7 +7,6 @@ public class Item
 
     private boolean canDestroyBlock;
     private boolean canCreateBlock;
-    private boolean emitsLight;
     private int createdBlockType;
     
     public Item(int type,String name) 
@@ -19,7 +18,7 @@ public class Item
     public Item setCreatedBlockType(int createdBlockType) 
     {
         this.createdBlockType = createdBlockType;
-        canCreateBlock = true;
+        this.canCreateBlock = true;
         return this;
     }
     

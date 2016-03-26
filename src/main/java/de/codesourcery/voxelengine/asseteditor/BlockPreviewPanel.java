@@ -1,4 +1,4 @@
-package de.codesourcery.voxelengine.blockeditor;
+package de.codesourcery.voxelengine.asseteditor;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -9,9 +9,8 @@ import java.io.IOException;
 
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
-import javax.swing.JPanel;
 
-public class BlockPreviewPanel extends JPanel 
+public class BlockPreviewPanel extends FormPanel<BlockDefinition> 
 {
     private static final Dimension IMAGE_SIZE = new Dimension(32,32);
     
@@ -23,7 +22,6 @@ public class BlockPreviewPanel extends JPanel
     private ImagePanel back = new ImagePanel();
     
     private TextureResolver textureResolver;
-    private BlockDefinition model;
     
     public BlockPreviewPanel() 
     {
@@ -61,18 +59,12 @@ public class BlockPreviewPanel extends JPanel
         add( panel , cnstrs );        
     }
 
-    public void setModel(BlockDefinition model) 
-    {
-        this.model = model;
-        modelChanged();
-    }
-    
     private void setSide(ImagePanel panel,BlockSideDefinition def) 
     {
         if ( def.isTextureAssigned() ) 
         {
             final TransformingTextureResolver res = new TransformingTextureResolver( this.textureResolver );
-            res.setTransform( def );
+            res.setTransform( def.texture );
             try {
                 panel.setImage( res.resolve( def.getInputTexture() ) );
             } catch (IOException e) {
@@ -83,7 +75,7 @@ public class BlockPreviewPanel extends JPanel
         }
     }
     
-    private void modelChanged() 
+    protected void modelChanged() 
     {
         if ( this.model != null ) 
         {
@@ -118,5 +110,9 @@ public class BlockPreviewPanel extends JPanel
     
     public TextureResolver getTextureResolver() {
         return textureResolver;
+    }
+
+    @Override
+    public void saveChanges() {
     }
 }

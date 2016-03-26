@@ -16,6 +16,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector3;
 
 import de.codesourcery.voxelengine.engine.ChunkManager;
+import de.codesourcery.voxelengine.engine.ItemFactory;
 import de.codesourcery.voxelengine.engine.PlayerController;
 import de.codesourcery.voxelengine.engine.RayMarcher;
 import de.codesourcery.voxelengine.engine.ShaderManager;
@@ -27,6 +28,7 @@ import de.codesourcery.voxelengine.model.BlockType;
 import de.codesourcery.voxelengine.model.Chunk;
 import de.codesourcery.voxelengine.model.ChunkKey;
 import de.codesourcery.voxelengine.model.Item;
+import de.codesourcery.voxelengine.model.ItemType;
 import de.codesourcery.voxelengine.model.World;
 import de.codesourcery.voxelengine.utils.IBlockSelection;
 import de.codesourcery.voxelengine.utils.SelectedBlock;
@@ -54,6 +56,8 @@ public class ApplicationMain implements ApplicationListener {
     private PlayerController playerController;
     private SpriteBatch spriteBatch;
     private BitmapFont font;    
+    
+    private final ItemFactory itemFactory = new ItemFactory();
     private final TaskScheduler taskScheduler = new TaskScheduler();
     
     private final TextureManager textureManager = new TextureManager();
@@ -91,6 +95,12 @@ public class ApplicationMain implements ApplicationListener {
         shaderManager = new ShaderManager();
         world = new World( shaderManager, chunkManager , camera );
 
+        world.player.toolbar.setItemInSlot(  0  , itemFactory.createItem( ItemType.SOLID1 ) );
+        world.player.toolbar.setItemInSlot(  1  , itemFactory.createItem( ItemType.ERASER ) );
+        world.player.toolbar.setItemInSlot(  2  , itemFactory.createItem( ItemType.GLOWSTONE ) );
+        world.player.toolbar.setItemInSlot(  3  , itemFactory.createItem( ItemType.SOLID2 ) );
+        world.player.toolbar.setItemInSlot(  4  , itemFactory.createItem( ItemType.WOOD ) );
+        
         world.player.setPosition(-115,13,50);
         world.player.lookAt( -1000 , 13 , 0 );
 

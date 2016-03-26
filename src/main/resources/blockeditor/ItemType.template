@@ -1,4 +1,4 @@
-package de.codesourcery.voxelengine.model;
+package ${PACKAGE};
 
 import com.badlogic.gdx.math.Vector2;
 
@@ -9,21 +9,15 @@ import com.badlogic.gdx.math.Vector2;
  *
  * @author tobias.gierke@code-sourcery.de
  */
-public final class ItemType 
+public final class ${CLASSNAME} 
 {
-    public static final int SOLID1 = 0;
-    public static final int ERASER = 1;
-    public static final int GLOWSTONE = 2;
-    public static final int SOLID2 = 3;
-    public static final int WOOD = 4;
+    ${ITEM_TYPE_IDS}
     
-    public static final int MAX_ITEM_TYPE = 4;
+    public static final int MAX_ITEM_TYPE = ${MAX_ITEM_TYPE};
     
     private static final float[] uv = new float[] 
     {
-      9.765625E-4f,9.765625E-4f,0.032226562f,0.032226562f,0.033203125f,9.765625E-4f,0.064453125f,0.032226562f,
-      0.06542969f,9.765625E-4f,0.09667969f,0.032226562f,0.09765625f,9.765625E-4f,0.12890625f,0.032226562f,
-      0.12988281f,9.765625E-4f,0.16113281f,0.032226562f 
+      ${UV_COORDINATES} 
     };
     
     /**
@@ -46,11 +40,7 @@ public final class ItemType
     {
         switch( itemType ) 
         {
-          case 0: return true;
-          case 1: return false;
-          case 2: return true;
-          case 3: return true;
-          case 4: return true;
+          ${CAN_CREATE_BLOCK}
           default:
             throw new IllegalArgumentException("Invalid item type id #"+itemType);
         }
@@ -60,11 +50,7 @@ public final class ItemType
     {
         switch( itemType ) 
         {
-          case 0: return false;
-          case 1: return true;
-          case 2: return false;
-          case 3: return false;
-          case 4: return false;
+          ${CAN_DESTROY_BLOCK}
           default:
             throw new IllegalArgumentException("Invalid item type id #"+itemType);
         }
@@ -74,10 +60,7 @@ public final class ItemType
     {
         switch( itemType ) 
         {
-          case 0: return 1;
-          case 2: return 3;
-          case 3: return 2;
-          case 4: return 4;
+          ${CREATED_BLOCK_TYPE}
           default:
             throw new IllegalArgumentException("Invalid item type id #"+itemType);
         }
@@ -87,11 +70,7 @@ public final class ItemType
     {
         switch( itemType ) 
         {
-          case 0: return "Solid1";
-          case 1: return "Eraser";
-          case 2: return "Glowstone";
-          case 3: return "Solid2";
-          case 4: return "Wood";
+          ${DISPLAY_NAME}
           default:
             throw new IllegalArgumentException("Invalid item type id #"+itemType);
         }    

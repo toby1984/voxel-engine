@@ -1,4 +1,4 @@
-package de.codesourcery.voxelengine.blockeditor;
+package de.codesourcery.voxelengine.asseteditor;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -13,11 +13,11 @@ import javax.imageio.ImageIO;
 
 import org.apache.commons.lang3.StringUtils;
 
-public class BlockConfigTextureResolver implements TextureResolver 
+public class AssetConfigTextureResolver implements TextureResolver 
 {
-    public final BlockConfig config;
+    public final AssetConfig config;
     
-    public BlockConfigTextureResolver(BlockConfig config) {
+    public AssetConfigTextureResolver(AssetConfig config) {
         this.config = config;
     }
 
