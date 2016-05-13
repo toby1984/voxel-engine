@@ -38,7 +38,7 @@ import de.codesourcery.voxelengine.asseteditor.BlockTreePanel.MyTreeNode;
 
 public class EditorMain extends JFrame 
 {
-    public static final Path APP_BASE_DIR = Paths.get("/home/tobi/mars_workspace/voxel-engine");
+    public static final Path APP_BASE_DIR = Paths.get("/home/tgierke/mars_develop_workspace/voxel-engine");
     
     public static final Path ASSETS_FOLDER = APP_BASE_DIR.resolve( "assets" );
     public static final Path TEXTURES_FOLDER = ASSETS_FOLDER.resolve( "textures" );

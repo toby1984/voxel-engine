@@ -73,6 +73,20 @@
     </dependency>
   </dependencies>
   <build>
+    <resources>
+      <resource>
+        <directory>assets</directory>
+        <includes>
+          <include>**/*</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <includes>
+          <include>**/*</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <inherited>true</inherited>
